@@ -177,6 +177,9 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 #lock[hidden]{display:none}#lock .lk{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px}#lock .lk img{width:72px;height:72px;border-radius:18px;box-shadow:0 20px 50px -20px #000}
 #lock .lk b{font:700 22px "Schibsted Grotesk",sans-serif}#lock .lk p{margin:0;color:var(--soft);font-size:14px;min-height:20px}
 html.locked body{overflow:hidden}
+.qf{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:-4px 0 12px;padding-bottom:2px}.qf::-webkit-scrollbar{display:none}.qf .chip{flex:none}
+.sec-l{font:600 11px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--soft);margin:22px 0 10px;padding-top:14px;border-top:1px solid var(--line)}.sheet .sec-l:first-of-type{border-top:0;padding-top:0;margin-top:6px}
+details.grp{margin-top:22px;border:1px solid var(--line);border-radius:14px;padding:12px 14px}details.grp>summary{cursor:pointer;font-weight:700;list-style:none}details.grp>summary::-webkit-details-marker{display:none}details.grp>summary::after{content:"+";float:right;color:var(--soft);font:600 18px var(--mono)}details.grp[open]>summary::after{content:"−"}
 @keyframes arrive{from{opacity:0;transform:translateY(10px) scale(.995)}}
 .tx:active,.rowbtn:active,.tick:active{transform:scale(.985)}.tx,.rowbtn{transition:background var(--d1),transform var(--d1)}
 @media(hover:hover){.card{transition:box-shadow var(--d2)}.card:hover{box-shadow:var(--shadow),0 0 0 1px color-mix(in oklab,var(--ink) 8%,transparent)}}
@@ -369,7 +372,7 @@ tr.stopped td{color:var(--soft)}
     <button class="tab" data-view="spending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Spending</button>
     <button class="tab" data-view="pockets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18M7 3h10"/></svg>Pockets</button>
     <button class="tab" data-view="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Activity</button>
-    <button class="tab" data-open="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4"/></svg>Sync</button>
+    <button class="tab" data-open="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>Settings</button>
     <div class="sync" id="syncRail"></div>
   </nav>
 
@@ -445,7 +448,7 @@ tr.stopped td{color:var(--soft)}
     </section>
 
     <section class="view" id="v-pockets" hidden>
-      <div class="head"><div><h1 id="pocketTitle">Pockets</h1><p class="soft">Each pocket has one job.</p></div><button class="btn ghost" data-open="plan">Edit plan</button></div>
+      <div class="head"><div><h1 id="pocketTitle">Pockets</h1><p class="soft">Each pocket has one job.</p></div><div style="display:flex;gap:8px"><button class="btn" data-open="goal">+ New goal</button><button class="btn ghost" data-open="plan">Edit plan</button></div></div>
       <div class="card" id="worthCard"><div class="card-h"><h2 id="worthHead">Everything you have</h2><span class="soft small" id="worthNote"></span></div><div id="worth"></div></div>
       <div class="pockets" id="pocketList"></div>
       <div class="card" id="yearCostCard"><div class="card-h"><h3 id="teHead">Yearly costs</h3><span class="soft small" id="teNote"></span></div><div id="te"></div>
@@ -459,6 +462,7 @@ tr.stopped td{color:var(--soft)}
     <section class="view" id="v-activity" hidden>
       <div class="head"><h1>Activity</h1><span class="soft" id="txCount"></span></div>
       <div class="search"><input id="q" type="search" placeholder="Search shops, amounts (>500) or #tags" aria-label="Search shops or amounts"><button class="chip" id="dayChip" hidden aria-label="Clear day filter"></button><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
+      <div class="chips qf" id="quickF" role="group" aria-label="Quick filters"></div>
       <div id="txList"></div>
       <button class="btn ghost" id="txMore" hidden style="justify-self:center">Show more</button>
     </section>
@@ -1210,6 +1214,7 @@ const fmtDay = (s) => { const d = B.D(s); return `${d.getUTCDate()} ${MON[d.getU
 const fmtDow = (s) => { const d = B.D(s); return `${DAY[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
 const longMonth = (ym) => B.MONTHS[+ym.slice(5) - 1];
 const COL = {emergency: 'var(--em)', allangray: 'var(--ag)', goals: 'var(--go)'};
+const GOAL_COLS = ['#a78bfa', '#22d3ee', '#f472b6', '#facc15', '#84cc16', '#fb923c'];
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const todayISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
 const today = () => B.D(todayISO());
@@ -1268,6 +1273,7 @@ function persist(keys = ['plan', 'overrides', 'ticks']) {
 
 /* ---------- derived data ---------- */
 function derive() {
+  for (const p of S.plan.pockets) if (p.color && !COL[p.key]) COL[p.key] = p.color;
   const t = today(); B.setNames(S.plan.names || {});
   const sp = S.plan.splits || {};
   const oo = S.plan.oneoff || {}, mark = (x) => (oo[x.id] ? {...x, oneoff: true} : x), rules = S.plan.rules || [];
@@ -1906,10 +1912,15 @@ function renderActivity(d) {
   // Search shops, or an amount ("612", "r612", ">500").
   const num = q.replace(/^r\s?/, '').replace(',', '.'), gt = /^>\s?\d/.test(num) ? +num.replace(/[>\s]/g, '') : null;
   const hit = (t) => !q || (q.startsWith('#') ? (t.tag || '').toLowerCase().includes(q.slice(1)) : gt != null ? Math.abs(t.amount) > gt : /^\d+(\.\d+)?$/.test(num) ? String(Math.abs(t.amount)).startsWith(num) || Math.abs(t.amount).toFixed(2).startsWith(num) : t.description.toLowerCase().includes(q) || B.labelOf(t.merchant).toLowerCase().includes(q));
-  const list = d.all.filter((t) => (!fc.value || t.category === fc.value) && (!fmo.value || t.date.startsWith(fmo.value)) && (!S.day || t.date === S.day) && hit(t)).slice().reverse();
+  const QF = {all: ['All', () => true], out: ['Spending', (t) => t.amount < 0 && B.groupOf(t.category) !== 'internal'], in: ['Money in', (t) => t.amount > 0 && B.groupOf(t.category) !== 'internal'],
+    live: ['Live', (t) => t.live], big: ['Over R500', (t) => t.amount <= -500], tag: ['Tagged', (t) => !!t.tag], oneoff: ['One-offs', (t) => t.oneoff], moves: ['Pocket moves', (t) => B.groupOf(t.category) === 'internal']};
+  S.qf ||= 'all';
+  $('#quickF').innerHTML = Object.entries(QF).map(([k, [l]]) => `<button class="chip" data-qf="${k}" aria-pressed="${S.qf === k}">${l}</button>`).join('');
+  const list = d.all.filter((t) => QF[S.qf][1](t) && (!fc.value || t.category === fc.value) && (!fmo.value || t.date.startsWith(fmo.value)) && (!S.day || t.date === S.day) && hit(t)).slice().reverse();
   const dayNet = new Map(); for (const t of list) dayNet.set(t.date, (dayNet.get(t.date) || 0) + (t.amount < 0 && B.groupOf(t.category) !== 'internal' ? -t.amount : 0));
   $('#dayChip').hidden = !S.day; if (S.day) $('#dayChip').innerHTML = `${fmtDow(S.day)} <span aria-hidden="true">✕</span>`;
-  $('#txCount').textContent = q.startsWith('#') ? `${list.length} tagged · ${R(-list.reduce((a, t) => a + Math.min(0, t.amount), 0))} spent` : `${list.length} transactions`;
+  const outSum = -list.reduce((a, t) => a + (t.amount < 0 && B.groupOf(t.category) !== 'internal' ? t.amount : 0), 0), inSum = list.reduce((a, t) => a + (t.amount > 0 && B.groupOf(t.category) !== 'internal' ? t.amount : 0), 0);
+  $('#txCount').textContent = `${list.length} ${q.startsWith('#') ? 'tagged' : 'transactions'}${outSum ? ' · ' + R(outSum) + ' out' : ''}${inSum ? ' · ' + R(inSum) + ' in' : ''}`;
   let html = '', lastDay = '';
   S.txLimit ||= 80;
   for (const t of list.slice(0, S.txLimit)) {
@@ -1936,19 +1947,19 @@ function closeSheet() {
 async function dataSheet() {
   const info = CLOUD ? await Store.liveInfo().catch(() => null) : null;
   const liveUrl = S.liveUrl || '';
-  openSheet(`<h2 id="sheetTitle" style="margin-bottom:6px">Sync</h2>
+  openSheet(`<h2 id="sheetTitle" style="margin-bottom:6px">Settings</h2>
     <p class="soft small" style="margin-bottom:16px">${CLOUD ? `Your data lives in a Google Sheet in your Drive. Only you can open this app.` : 'This copy keeps data in this browser only. Set up the Google version for automatic sync.'}</p>
-    ${REMOTE ? `<div class="note" style="margin:0 0 18px;display:block"><h3>Notifications</h3>
+    ${REMOTE ? `<p class="sec-l">This device</p><div class="note" style="margin:0 0 18px;display:block"><h3>Notifications</h3>
     <p class="soft small" id="pushNote" style="margin:6px 0 10px">Checking…</p>
     <div style="display:flex;gap:8px"><button class="btn" id="pushOn" style="flex:1" hidden>Turn on notifications</button><button class="btn ghost" id="pushTest" style="flex:1" hidden>Send a test</button></div>
     <button class="link" id="pushOff" hidden style="margin-top:8px">Turn off on this device</button></div>
     <div class="note" style="margin:0 0 18px;display:block"><h3>Lock with Face ID</h3><p class="soft small" style="margin:6px 0 10px" id="lockNote">${lockOn() ? '<b>On.</b> Jaeger asks for Face ID (or Windows Hello) when it opens and after a minute away.' : 'Hide your money behind Face ID on this device (Windows Hello on a laptop).'}</p>
     <button class="btn${lockOn() ? ' ghost' : ''}" id="lockToggle" style="width:100%">${lockOn() ? 'Turn off the lock' : 'Turn on Face ID lock'}</button></div>` : ''}
-    <h3>Statements: automatic from Gmail</h3>
+    <p class="sec-l">Your data</p><h3>Statements: automatic from Gmail</h3>
     ${CLOUD ? (() => { const l = S.lastStatement; return `<div class="note" style="margin:8px 0 12px"><p>${l ? `<b>Last read from Gmail:</b> ${esc(l.name)}${l.from ? `, ${esc(fmtDay(l.from))} to ${esc(fmtDay(l.to))}` : ''}. ${l.added ? l.added + ' new rows' : 'Nothing new in it'}, ${esc(ago(l.at))}.` : '<b>No statement read from Gmail yet.</b>'}</p><button class="btn ghost" id="sheetCheck">Check Gmail now</button></div>`; })() : ''}
     <ol class="how" style="margin:8px 0 14px"><li>In the Capitec app, open your main account and tap <b>Email statement</b>. Pick the dates since your last statement (or longer, overlaps are fine) and send it to <b>${esc(S.meta.me || 'your Gmail')}</b>.</li><li>Open Jaeger. It finds the statement in Gmail, reads it and adds anything new. Live entries it covers are replaced.</li></ol>
     <div class="drop" id="drop"><b>Or add a statement PDF here</b><label class="btn ghost" for="file">Choose a file</label><input id="file" type="file" accept="application/pdf,.pdf,.txt" hidden><p class="msg" id="msg" role="status"></p></div>
-    ${CLOUD && info ? `<h3 style="margin-top:22px">The Jaeger app</h3>
+    ${CLOUD && info ? `<p class="sec-l">Devices</p>
     ${REMOTE ? `<div class="note" style="margin:8px 0"><p><b>This device is connected</b> to your Google account. Install it: on iPhone tap Share → <b>Add to Home Screen</b>; on a laptop use the install icon in the address bar.</p><button class="btn ghost" id="unlink">Disconnect</button></div>
     <div style="display:flex;gap:8px"><button class="btn" id="emailApp" style="flex:1">Email my link</button><button class="btn ghost" id="copyApp" style="flex:1">Copy link</button></div>
     <p class="soft small" style="margin-top:6px">For another phone or laptop. Or on the new device just tap <b>Connect with Google</b>.</p>`
@@ -1956,7 +1967,8 @@ async function dataSheet() {
     <a class="btn" style="width:100%;text-decoration:none" href="${esc(info.appLink)}" target="_blank" rel="noopener">Open the Jaeger app</a>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="copyApp" style="flex:1">Copy link for another device</button></div>`}
     <p class="soft small" style="margin-top:8px">Lost a phone? <button class="link" id="newKey">Disconnect every device</button> and open the new link again.</p>
-    <h3 style="margin-top:22px">Live: every Capitec notification</h3>
+    <details class="grp"${S.live.length ? '' : ' open'}><summary>iPhone Shortcuts: live alerts and the Safe-to-spend button</summary>
+    <h3 style="margin-top:14px">Live: every Capitec notification</h3>
     <p class="soft small" style="margin:6px 0 10px">${S.live.length ? `Working: the last one arrived ${esc(ago(S.live[S.live.length - 1].received || S.live[S.live.length - 1].date))}.` : 'Set up once on your iPhone. After that every purchase and payment lands here by itself.'}</p>
     <h3 style="margin-top:22px">Home Screen button: safe to spend</h3>
     <p class="soft small" style="margin:6px 0 10px">A button on your iPhone that shows today's amount without opening Jaeger. Tap below, then in Shortcuts: <b>+</b> → add <b>Get Contents of URL</b> (paste the link) → add <b>Show Result</b> → name it "Safe to spend" → Share → <b>Add to Home Screen</b>.</p>
@@ -1969,7 +1981,7 @@ async function dataSheet() {
     <details style="margin-top:12px"><summary class="soft small">Address and token</summary>
     <label class="small soft" for="liveUrl" style="display:block;margin-top:10px">Jaeger live web app address</label><div style="display:flex;gap:8px;margin:4px 0 8px"><input class="field" id="liveUrl" style="flex:1;min-width:0" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(liveUrl)}"><button class="btn ghost" id="copyUrl" style="min-height:36px">Copy</button></div>
     <div class="code"><span id="tok">${esc(info.token)}</span><button class="btn ghost" id="copyTok" style="min-height:36px">Copy token</button></div>
-    <p class="soft small" style="margin-top:8px">Anyone with this token could add fake entries, never read your data. <button class="link" id="newTok">Make a new token</button></p></details>` : ''}
+    <p class="soft small" style="margin-top:8px">Anyone with this token could add fake entries, never read your data. <button class="link" id="newTok">Make a new token</button></p></details></details>` : ''}
     ${!CLOUD ? `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button class="btn danger" id="erase">Erase from this browser</button></div>` : ''}`, () => {
     const drop = $('#drop');
     $('#file').onchange = (e) => e.target.files[0] && importFile(e.target.files[0]);
@@ -2036,10 +2048,43 @@ function txSheet(id) {
 function editSheet(key) {
   const p = S.plan.pockets.find((x) => x.key === key);
   openSheet(`<h2 id="sheetTitle">${esc(p.name)}</h2><p class="soft small" style="margin:4px 0 14px">Type the balance the ${esc(p.where)} app shows.</p>
-    <form id="balForm" style="display:flex;gap:8px"><input class="field" id="balIn" inputmode="decimal" value="${p.balance}" aria-label="Balance" style="flex:1"><button class="btn">Save</button></form>`, () => {
+    <form id="balForm" style="display:flex;gap:8px"><input class="field" id="balIn" inputmode="decimal" value="${p.balance}" aria-label="Balance" style="flex:1"><button class="btn">Save</button></form>${p.custom ? '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn ghost" id="goalEdit" style="flex:1">Edit goal</button><button class="btn danger" id="goalDel" style="flex:1">Delete</button></div>' : ''}`, () => {
     $('#balIn').focus();
     $('#balForm').onsubmit = (e) => { e.preventDefault(); const v = B.amountOf($('#balIn').value); if (!isFinite(v)) return toast('Type a number, like 25000');
       p.balance = v; persist(['plan']); closeSheet(); render(); toast(`${p.name} updated`); };
+    if ($('#goalDel')) $('#goalDel').onclick = (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to delete this goal'; return; }
+      S.plan.pockets = S.plan.pockets.filter((x) => x.key !== key); persist(['plan']); closeSheet(); render(); toast('Goal deleted'); };
+    if ($('#goalEdit')) $('#goalEdit').onclick = () => goalSheet(key);
+  });
+}
+/* ---------- your own goals: name, target, monthly amount, where the money sits ---------- */
+function goalSheet(key) {
+  const g = key ? S.plan.pockets.find((x) => x.key === key) : null;
+  openSheet(`<h2 id="sheetTitle">${g ? 'Edit goal' : 'New goal'}</h2><p class="soft small" style="margin:4px 0 14px">Something to save for: a car, a holiday, a new iPad. Jaeger shows when you'll get there and adds it to your payday moves.</p>
+    <form id="goalForm">
+      <label class="small soft" for="gName">What it's for</label><input class="field" id="gName" required maxlength="40" value="${esc(g ? g.name : '')}" placeholder="e.g. Holiday in Durban" style="width:100%;margin:4px 0 10px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label class="small soft" for="gTarget">Target</label><input class="field" id="gTarget" inputmode="decimal" required value="${g ? g.target : ''}" placeholder="R15 000" style="width:100%;margin:4px 0 10px"></div>
+        <div><label class="small soft" for="gMonthly">Put in each payday</label><input class="field" id="gMonthly" inputmode="decimal" value="${g ? g.monthly || '' : ''}" placeholder="R1 000" style="width:100%;margin:4px 0 10px"></div>
+        <div><label class="small soft" for="gBal">Saved so far</label><input class="field" id="gBal" inputmode="decimal" value="${g ? g.balance : ''}" placeholder="R0" style="width:100%;margin:4px 0 10px"></div>
+        <div><label class="small soft" for="gWhere">Where it sits</label><input class="field" id="gWhere" maxlength="24" value="${esc(g ? g.where : 'Capitec')}" style="width:100%;margin:4px 0 10px"></div>
+      </div>
+      <p class="soft small" id="gHint" style="min-height:20px;margin:2px 0 12px"></p>
+      <button class="btn" style="width:100%">${g ? 'Save goal' : 'Add goal'}</button></form>`, () => {
+    const num = (id) => { const v = B.amountOf($('#' + id).value || '0'); return isFinite(v) ? v : 0; };
+    const hint = () => { const t = num('gTarget'), m = num('gMonthly'), b = num('gBal'); if (!t) return $('#gHint').textContent = '';
+      if (b >= t) return $('#gHint').textContent = 'Already there!';
+      if (!m) return $('#gHint').textContent = `${R(t - b)} to go. Add a monthly amount to see when you'll get there.`;
+      const n = Math.ceil((t - b) / m), d = new Date(today().getTime()); d.setUTCMonth(d.getUTCMonth() + n);
+      $('#gHint').textContent = `About ${n} month${n > 1 ? 's' : ''}: ${longMonth(B.iso(d).slice(0, 7))} ${d.getUTCFullYear()}.`; };
+    for (const id of ['gTarget', 'gMonthly', 'gBal']) $('#' + id).addEventListener('input', hint); hint(); if (!g) setTimeout(() => $('#gName').focus(), 250);
+    $('#goalForm').onsubmit = (e) => { e.preventDefault(); const name = $('#gName').value.trim(), target = num('gTarget');
+      if (!name || !(target > 0)) return toast('Give it a name and a target.');
+      const fields = {name, target, monthly: num('gMonthly'), balance: num('gBal'), where: $('#gWhere').value.trim() || 'Capitec'};
+      if (g) Object.assign(g, fields);
+      else { const used = S.plan.pockets.filter((p) => p.custom).length;
+        S.plan.pockets.push({key: 'g' + Date.now().toString(36), kind: 'save', custom: true, color: GOAL_COLS[used % GOAL_COLS.length], job: 'Your goal: ' + name + '.', day: null, ...fields}); }
+      persist(['plan']); closeSheet(); render(); toast(g ? 'Goal saved' : `${name} added`); };
   });
 }
 function planSheet() {
@@ -2191,6 +2236,8 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-open=data]')) return dataSheet();
   if (e.target.closest('[data-open=plan]')) return planSheet();
   if (e.target.closest('[data-open=afford]')) return affordSheet();
+  if (e.target.closest('[data-open=goal]')) return goalSheet();
+  const qf = e.target.closest('[data-qf]'); if (qf) { S.qf = qf.dataset.qf; S.txLimit = 80; return renderActivity(); }
   const cn = e.target.closest('[data-calnav]'); if (cn) { calOff = Math.max(-1, Math.min(2, calOff + +cn.dataset.calnav)); $('#calWrap').innerHTML = billMonth(derive()); return; }
   const cd = e.target.closest('[data-cal]'); if (cd) { const c = B.billCalendar(derive().tx, derive().liveOpen, S.plan, today(), calOff), x = c.days.find((y) => y.date === cd.dataset.cal), box = $('#calDay'); for (const b of $$('.cal-d')) b.classList.toggle('sel', b === cd); box.innerHTML = `<b>${fmtDow(x.date)}</b>` + (x.payday ? `<div class="bill"><span class="d">Payday</span><span>Salary</span><span class="num" style="color:var(--good);font-weight:600">+${R(S.plan.take_home || 0)}</span></div>` : '') + x.bills.map((b) => `<div class="bill"><span class="d">${b.paid ? 'Paid' : b.late ? 'Not seen' : 'To come'}</span><span>${esc(b.label)}</span><span class="num" style="font-weight:600">${R(b.amount, b.amount % 1 ? 2 : 0)}</span></div>`).join('') + (!x.bills.length && !x.payday ? '<p class="soft small">Nothing goes off this day.</p>' : ''); return; }
   const vw = e.target.closest('[data-billview]'); if (vw) { S.billView = vw.dataset.billview; return render(); }
