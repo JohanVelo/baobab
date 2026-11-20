@@ -1,13 +1,13 @@
 {
- "name": "Baobab",
- "short_name": "Baobab",
- "description": "Your private money app.",
+ "name": "Jaeger",
+ "short_name": "Jaeger",
+ "description": "Hunt down every rand. Your private money app.",
  "start_url": "./#today",
  "scope": "./",
  "display": "standalone",
  "orientation": "any",
- "background_color": "#0b0d0f",
- "theme_color": "#0b0d0f",
+ "background_color": "#08090b",
+ "theme_color": "#08090b",
  "icons": [
   {
    "src": "icon-192.png",
