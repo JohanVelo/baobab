@@ -139,6 +139,8 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .tx .ic.g-bills{color:var(--soft)}.tx .ic.g-everyday{color:var(--em);background:color-mix(in oklab,var(--em) 12%,var(--raise))}
 .tx .ic.g-wants{color:var(--go);background:color-mix(in oklab,var(--go) 12%,var(--raise))}.tx .ic.g-in{color:var(--good);background:color-mix(in oklab,var(--good) 12%,var(--raise))}
 .tx .ic.g-internal{color:var(--ag);background:color-mix(in oklab,var(--ag) 12%,var(--raise))}
+.cmp{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);font-size:14px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg .chip{font:500 13px 'Schibsted Grotesk',sans-serif;min-height:40px}
 .qcats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.qcats .chip{font:500 13px 'Schibsted Grotesk',sans-serif;min-height:40px}
 /* pocket rings */
 .pk-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.ring{width:56px;height:56px;flex:none}
@@ -562,7 +564,22 @@ tr.stopped td{color:var(--soft)}
   const D = (s) => new Date(s + 'T12:00:00Z');
   const iso = (d) => d.toISOString().slice(0, 10);
   const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-  function paydayOn(y, m, day) { const d = new Date(Date.UTC(y, m, Math.min(day, daysIn(y, m)), 12)); while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1); return d; }
+  // South African public holidays (a Sunday holiday moves to Monday). Payday moves to the business day before.
+  const HOLI = new Map();
+  function holidays(y) {
+    if (HOLI.has(y)) return HOLI.get(y);
+    const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3),
+      h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+      em = Math.floor((h + l - 7 * m + 114) / 31) - 1, ed = ((h + l - 7 * m + 114) % 31) + 1, easter = Date.UTC(y, em, ed, 12);
+    const set = new Set();
+    for (const [mo, da] of [[0, 1], [2, 21], [3, 27], [4, 1], [5, 16], [7, 9], [8, 24], [11, 16], [11, 25], [11, 26]]) {
+      const dt = new Date(Date.UTC(y, mo, da, 12)); set.add(iso(dt)); if (dt.getUTCDay() === 0) set.add(iso(new Date(dt.getTime() + 864e5)));
+    }
+    set.add(iso(new Date(easter - 2 * 864e5))); set.add(iso(new Date(easter + 864e5)));  // Good Friday, Family Day
+    HOLI.set(y, set); return set;
+  }
+  const workday = (d) => d.getUTCDay() !== 0 && d.getUTCDay() !== 6 && !holidays(d.getUTCFullYear()).has(iso(d));
+  function paydayOn(y, m, day) { const d = new Date(Date.UTC(y, m, Math.min(day, daysIn(y, m)), 12)); while (!workday(d)) d.setUTCDate(d.getUTCDate() - 1); return d; }
   function nextPayday(t, day) { const p = paydayOn(t.getUTCFullYear(), t.getUTCMonth(), day); return p >= t ? p : paydayOn(t.getUTCFullYear(), t.getUTCMonth() + 1, day); }
   function addMonths(d, n) { const m = d.getUTCMonth() + n, y = d.getUTCFullYear() + Math.floor(m / 12), mm = ((m % 12) + 12) % 12; return new Date(Date.UTC(y, mm, Math.min(d.getUTCDate(), daysIn(y, mm)), 12)); }
 
@@ -707,6 +724,7 @@ tr.stopped td{color:var(--soft)}
       const med = past[Math.floor(past.length / 2)];
       if (-l.amount > Math.max(2 * med, med + 150)) out.push({tone: 'warn', title: `${R(-l.amount)} at ${labelOf(l.merchant)} is ${(-l.amount / med).toFixed(1)}× your usual`, body: `You normally spend about ${R(med)} there (${past.length} visits on your statements). If this wasn't you, call Capitec on 0860 10 20 43.`});
     }
+    for (const r of priceRises(tx)) out.push({tone: 'warn', title: `${r.label} went up: ${R(r.from)} → ${R(r.to)}`, body: `From ${MONTHS[+r.month.slice(5) - 1]} it costs ${R(r.to - r.from)} more a month (${R((r.to - r.from) * 12)} a year). Still worth it?`});
     if (fc && fc.low && fc.low.bal < 0) out.push({tone: 'warn', title: `Main account could go below zero on ${fc.low.date.slice(8)} ${MONTHS[+fc.low.date.slice(5, 7) - 1].slice(0, 3)}`, body: `At your usual pace and with the debit orders still to come, it reaches ${R(fc.low.bal).replace('R-', '-R')} before payday. Move money from Wants or slow down for a few days.`});
     return out;
   }
@@ -717,6 +735,42 @@ tr.stopped td{color:var(--soft)}
       const v = by.get(t.merchant) || {merchant: t.merchant, label: labelOf(t.merchant), category: t.category, total: 0, count: 0}; v.total -= t.amount; v.count++; by.set(t.merchant, v);
     }
     return [...by.values()].sort((a, b) => b.total - a.total).slice(0, n);
+  }
+
+  // Refunds: money back from a shop you paid before counts against that spending, not as income.
+  function refunds(tx) {
+    const cat = new Map();
+    return tx.map((t) => {
+      if (t.amount < 0) { cat.set(t.merchant, t.category); return t; }
+      if (t.category === 'Other income' && cat.has(t.merchant) && !['internal', 'income'].includes(groupOf(cat.get(t.merchant)))) return {...t, category: cat.get(t.merchant), refund: true};
+      return t;
+    });
+  }
+  // Price creep: a repeating charge whose latest amount is higher than the one before.
+  function priceRises(tx) {
+    const by = new Map();
+    for (const t of tx) if (t.amount < 0 && ['Subscriptions', 'Insurance', 'Phone & internet', 'Medical aid', 'Gym', 'Bank fees'].includes(t.category)) {
+      const m = by.get(t.merchant) || new Map(); m.set(t.date.slice(0, 7), (m.get(t.date.slice(0, 7)) || 0) - t.amount); by.set(t.merchant, m);
+    }
+    const out = [];
+    for (const [merchant, m] of by) {
+      const ms = [...m].sort((a, b) => a[0].localeCompare(b[0])); if (ms.length < 3) continue;
+      const [pm, prev] = ms[ms.length - 2], [lm, last] = ms[ms.length - 1];
+      if (last > prev * 1.03 && last - prev >= 5 && ms.slice(0, -1).every(([, v]) => Math.abs(v - prev) < prev * 0.03 + 1)) out.push({merchant, label: labelOf(merchant), from: prev, to: last, month: lm, since: pm});
+    }
+    return out;
+  }
+  // The same point in earlier pay cycles: how much everyday + wants you had spent by now.
+  function samePointBefore(txAll, plan, today, n = 3) {
+    const c = cycle(plan, today), elapsed = Math.max(0, c.length - c.days), out = [];
+    let start = D(c.start);
+    for (let i = 0; i < n; i++) {
+      const prevStart = paydayOn(start.getUTCFullYear(), start.getUTCMonth() - 1, plan.payday);
+      const to = iso(new Date(prevStart.getTime() + elapsed * 864e5)), sp = spentBetween(txAll, iso(prevStart), to);
+      if (txAll.length && txAll[0].date <= iso(prevStart)) out.push(sp.everyday + sp.wants);
+      start = prevStart;
+    }
+    return out.length ? Math.round(out.reduce((a, b) => a + b, 0) / out.length) : null;
   }
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const monthName = (ym) => MONTHS[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
@@ -846,7 +900,15 @@ tr.stopped td{color:var(--soft)}
     const budget = (plan.budget.everyday || 0) + (plan.budget.wants || 0);
     const left = budget - spent.everyday - spent.wants;
     const days = Math.max(1, c.days);
-    return {cycle: c, spent, budget, left: Math.round(left), perDay: Math.max(0, Math.floor(left / days)), days, over: left < 0};
+    // Weekend weighting: Friday to Sunday get more (plan.weekend, e.g. 1.5), Monday to Thursday less, same total.
+    const wk = Math.max(1, +plan.weekend || 1), wOf = (d) => ([0, 5, 6].includes(d.getUTCDay()) ? wk : 1);
+    let wsum = 0; for (let i = 0; i < days; i++) wsum += wOf(new Date(today.getTime() + i * 864e5));
+    const share = wOf(today) / wsum, flexible = Math.max(0, Math.floor(left * share));
+    // Steady mode: the same allowance every day; what you don't use is kept aside (for savings on payday).
+    const steadyDay = Math.floor(budget / Math.max(1, c.length) * (wk > 1 ? wOf(today) * c.length / Array.from({length: c.length}, (_, i) => wOf(new Date(D(c.start).getTime() + i * 864e5))).reduce((a, b) => a + b, 0) : 1));
+    const elapsed = Math.max(0, c.length - c.days), ahead = Math.round(budget * elapsed / Math.max(1, c.length) - spent.everyday - spent.wants);
+    const steady = plan.daily === 'steady';
+    return {cycle: c, spent, budget, left: Math.round(left), perDay: steady ? Math.max(0, Math.min(steadyDay, Math.floor(left / days) * 3)) : flexible, days, over: left < 0, ahead, mode: steady ? 'steady' : 'rollover'};
   }
 
   // Main account balance from today to payday: known bills on their dates plus your usual daily spending.
@@ -898,7 +960,7 @@ tr.stopped td{color:var(--soft)}
       top: [...by].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, v]) => ({label: labelOf(m), amount: Math.round(v)}))};
   }
 
-  const api = {liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+  const api = {refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
     nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
     toTransactions, merge, monthName, MONTHS, iso, D,
     cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
@@ -972,7 +1034,7 @@ function persist(keys = ['plan', 'overrides', 'ticks']) {
 /* ---------- derived data ---------- */
 function derive() {
   const t = today();
-  const tx = S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x));
+  const tx = B.refunds(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)));
   const liveTx = B.liveToTx(S.live, S.overrides, tx), rc = B.reconcile(tx, liveTx), all = B.allTx(tx, rc.open);
   return {t, tx, all, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
     cl: B.checklist(S.plan, t, new Set(S.ticks)), proj: B.project(S.plan, t, 14), safe: B.safeToSpend(all, S.plan, t),
@@ -1179,8 +1241,8 @@ function renderToday(d) {
     $('#safeLabel').textContent = 'Over budget this pay cycle'; countUp($('#safe'), -s.left);
     $('#safeSub').innerHTML = `Everyday and wants have used ${R(s.spent.everyday + s.spent.wants)} of ${R(s.budget)}. Payday on <b>${payDate}</b> starts a fresh cycle.`;
   } else {
-    $('#safeLabel').textContent = 'Safe to spend today'; countUp($('#safe'), s.perDay, (v) => R(v) + '<small>a day</small>');
-    $('#safeSub').innerHTML = `<b>${R(s.left)}</b> left for everyday and wants until payday on <b>${payDate}</b>.`;
+    $('#safeLabel').textContent = s.mode === 'steady' ? 'Your allowance today' : 'Safe to spend today'; countUp($('#safe'), s.perDay, (v) => R(v) + '<small>a day</small>');
+    $('#safeSub').innerHTML = `<b>${R(s.left)}</b> left for everyday and wants until payday on <b>${payDate}</b>.` + (s.mode === 'steady' ? `<span class="nextplan">${s.ahead >= 0 ? `${R(s.ahead)} unspent so far: move it to Goals on payday` : `${R(-s.ahead)} over your daily pace so far`}</span>` : '') + (+S.plan.weekend > 1 ? `<span class="nextplan">${[0, 5, 6].includes(d.t.getUTCDay()) ? 'Weekend: a bigger share today' : 'Weekday: a smaller share today, weekends get more'}</span>` : '');
   }
   const bal = d.fc ? d.fc.start : null;
   $('#minis').innerHTML = `<div class="mini"><span>Saved</span><b class="num" data-to="${Math.round(d.stored)}">${R(d.stored)}</b><span>in ${S.plan.pockets.filter((p) => p.kind !== 'spend' && p.balance > 0).length} pockets</span></div>
@@ -1209,11 +1271,13 @@ function renderToday(d) {
   // cycle meters with pace marker
   const k = c.length ? Math.min(1, (c.length - c.days) / c.length) : 0;
   $('#cycleNote').textContent = c.planStarted ? `${fmtDay(c.start)} to ${fmtDay(c.end)}` : `${fmtDay(c.start)} to ${fmtDay(c.end)}, before your plan starts`;
+  const before = B.samePointBefore(d.all, S.plan, d.t), nowSp = s.spent.everyday + s.spent.wants;
+  const cmp = before == null ? '' : `<div class="cmp"><span>By today you've spent <b>${R(nowSp)}</b> on everyday and wants. In your last 3 cycles it was <b>${R(before)}</b> by this point.</span><span class="tag ${nowSp > before * 1.1 ? 'bad' : nowSp < before * 0.9 ? 'good' : ''}">${before ? (nowSp >= before ? '+' : '−') + Math.abs(Math.round((nowSp - before) / before * 100)) + '%' : '—'}</span></div>`;
   $('#meters').innerHTML = ['bills', 'everyday', 'wants'].map((g) => {
     const b = S.plan.budget[g] || 0, v = s.spent[g], o = b && v > b, ahead = b && v > b * k + 50 && !o;
     return `<div class="meter ${o ? 'over' : ''}"><div class="meter-top"><span>${g[0].toUpperCase() + g.slice(1)}</span><span class="num"><b>${R(v)}</b>${b ? ` <span class="soft">of ${R(b)}</span>` : ''}${o ? ` <span class="tag bad">${R(v - b)} over</span>` : ahead ? ' <span class="tag">ahead of pace</span>' : ''}</span></div>
       ${b ? `<div class="track"><div class="fill" style="width:${Math.min(100, v / b * 100)}%"></div><div class="pace" style="left:${k * 100}%" title="Where you'd be on an even pace"></div></div>` : ''}</div>`;
-  }).join('') + '<p class="soft small" style="margin-top:8px">The thin line shows where an even pace would put you today.</p>'
+  }).join('') + cmp + '<p class="soft small" style="margin-top:8px">The thin line shows where an even pace would put you today.</p>'
     + ((ts) => ts.length ? `<h3 style="margin:18px 0 4px">Top places this cycle</h3>` + ts.map((x) => `<div class="bill"><span class="d">${x.count}×</span><span>${esc(x.label)} <span class="soft small">${esc(x.category)}</span></span><span class="num" style="font-weight:600">${R(x.total)}</span></div>`).join('') : '')(B.topShops(d.all, c.start, c.end));
   // goals
   const gd = B.goalDates(S.plan, d.t);
@@ -1410,7 +1474,7 @@ function renderActivity(d) {
   for (const t of list.slice(0, S.txLimit)) {
     if (t.date !== lastDay) { const v = dayNet.get(t.date); html += `<div class="day"><span>${t.date === todayISO() ? 'Today' : fmtDow(t.date) + ' ' + t.date.slice(0, 4)}</span>${v ? `<span class="num">${R(v)} spent</span>` : ''}</div>`; lastDay = t.date; }
     const label = B.labelOf(t.merchant);
-    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
+    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}${t.refund ? ' <span class="tag good">Refund</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
   }
   $('#txList').innerHTML = html || '<p class="soft" style="padding:20px 0">Nothing matches.</p>';
   $('#txMore').hidden = list.length <= S.txLimit; $('#txMore').textContent = `Show more (${list.length - S.txLimit} left)`;
@@ -1511,7 +1575,13 @@ function editSheet(key) {
 function planSheet() {
   const P = S.plan, f = (id, v, lab) => `<label class="small soft" for="${id}">${lab}</label><input class="field" id="${id}" inputmode="decimal" value="${v ?? ''}" style="width:100%;margin:4px 0 10px">`;
   const two = (a, b) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${a}${b}</div>`;
-  openSheet(`<h2 id="sheetTitle">Your plan</h2><p class="soft small" style="margin:4px 0 16px">Rand amounts. Pocket balances: what the bank app shows today.</p><form id="planForm">
+  const seg = (key, opts) => `<div class="seg" role="group">${opts.map(([v, lab]) => `<button type="button" class="chip" data-set="${key}" data-val="${v}" aria-pressed="${String(P[key] ?? opts[0][0]) === String(v)}">${lab}</button>`).join('')}</div>`;
+  openSheet(`<h2 id="sheetTitle">Your plan</h2>
+    <h3 style="margin:14px 0 6px">Daily allowance</h3>${seg('daily', [['rollover', 'Unspent rolls over'], ['steady', 'Same every day']])}
+    <p class="soft small" style="margin:6px 0 12px">Rolls over: a cheap day gives you more tomorrow. Same every day: a fixed amount, and what you don't use is shown as money to move to Goals on payday.</p>
+    <h3 style="margin:4px 0 6px">Weekends</h3>${seg('weekend', [[1, 'Every day the same'], [1.5, 'More on Fri to Sun']])}
+    <p class="soft small" style="margin:6px 0 16px">More on Fri to Sun gives weekends 1.5× a weekday. The total for the pay cycle doesn't change.</p>
+    <p class="soft small" style="margin:4px 0 16px">Rand amounts. Pocket balances: what the bank app shows today.</p><form id="planForm">
     ${two(f('p-th', P.take_home || '', 'Take-home pay a month'), f('p-pd', P.payday, 'Payday (day of month)'))}
     ${two(f('p-bills', P.budget.bills || '', 'Bills a month'), f('p-every', P.budget.everyday || '', 'Everyday a month'))}
     ${P.pockets.map((p) => `<h3 style="margin:8px 0">${esc(p.name)}</h3>${two(f('b-' + p.key, p.balance, 'Balance now'), f('m-' + p.key, p.monthly || '', p.debit_order ? 'Debit order a month' : 'In every payday'))}${p.kind !== 'invest' && p.key !== 'wants' ? f('t-' + p.key, p.target || '', p.kind === 'spend' ? 'Target a year' : 'Target') : ''}${p.key === 'goals' ? `<label class="small soft" for="g-name">What it's for</label><input class="field" id="g-name" value="${esc(p.goal || '')}" style="width:100%;margin:4px 0 10px">` : ''}`).join('')}
@@ -1556,6 +1626,7 @@ document.addEventListener('click', (e) => {
   const cat = e.target.closest('[data-cat]'); if (cat) return catSheet(cat.dataset.cat);
   const tx = e.target.closest('[data-tx]'); if (tx) return txSheet(tx.dataset.tx);
   const ed = e.target.closest('[data-edit]'); if (ed) return editSheet(ed.dataset.edit);
+  const st = e.target.closest('[data-set]'); if (st) { const k = st.dataset.set, v = st.dataset.val; S.plan[k] = isNaN(+v) ? v : +v; for (const b of $$(`[data-set="${k}"]`)) b.setAttribute('aria-pressed', b === st); persist(['plan']); render(); return toast('Saved'); }
   const tick = e.target.closest('.tick');
   if (tick) {
     const id = tick.closest('.step').dataset.id, move = S.plan.moves.find((m) => m.id === id);
