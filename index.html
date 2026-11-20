@@ -1287,7 +1287,8 @@ async function dataSheet() {
     <ol class="how" style="margin:8px 0 14px"><li>In the Capitec app, open your main account and tap <b>Email statement</b>. Pick the dates since your last statement (or longer, overlaps are fine) and send it to <b>${esc(S.meta.me || 'your Gmail')}</b>.</li><li>Open Baobab. It finds the statement in Gmail, reads it and adds anything new. Live entries it covers are replaced.</li></ol>
     <div class="drop" id="drop"><b>Or add a statement PDF here</b><label class="btn ghost" for="file">Choose a file</label><input id="file" type="file" accept="application/pdf,.pdf,.txt" hidden><p class="msg" id="msg" role="status"></p></div>
     ${CLOUD && info ? `<h3 style="margin-top:22px">The Baobab app</h3>
-    ${REMOTE ? `<div class="note" style="margin:8px 0"><p><b>This device is connected</b> to your Google account. Install it: on iPhone tap Share → <b>Add to Home Screen</b>; on a laptop use the install icon in the address bar.</p><button class="btn ghost" id="unlink">Disconnect</button></div>`
+    ${REMOTE ? `<div class="note" style="margin:8px 0"><p><b>This device is connected</b> to your Google account. Install it: on iPhone tap Share → <b>Add to Home Screen</b>; on a laptop use the install icon in the address bar.</p><button class="btn ghost" id="unlink">Disconnect</button></div>
+    <button class="btn" id="copyApp" style="width:100%">Copy link for another device or the Home Screen app</button>`
       : `<p class="soft small" style="margin:6px 0 10px">Baobab on its own address: full screen, no Google bar, installs like an app on your phone and laptop. Open this link once on each device.</p>
     <a class="btn" style="width:100%;text-decoration:none" href="${esc(info.appLink)}" target="_blank" rel="noopener">Open the Baobab app</a>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="copyApp" style="flex:1">Copy link for another device</button></div>`}
