@@ -155,6 +155,10 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .pod.p1 i{background:color-mix(in oklab,var(--go) 45%,transparent)}.pod.p2 i{animation-delay:.1s}.pod.p3 i{animation-delay:.2s}
 .pod b,.pod span{position:relative;z-index:1}.pod b{font:700 15px 'Schibsted Grotesk',sans-serif}.pod span{font-size:12px;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
 input[type=range]{accent-color:var(--sig);height:28px}
+/* payday burst */
+.burst{position:absolute;left:22%;top:38%;width:0;height:0;pointer-events:none;z-index:5}
+.burst i{position:absolute;width:7px;height:7px;border-radius:2px;background:var(--c);transform:rotate(var(--a)) translateX(0);opacity:0;animation:spark 1.2s var(--e-out) forwards}
+@keyframes spark{0%{opacity:1;transform:rotate(var(--a)) translateX(0) scale(1)}100%{opacity:0;transform:rotate(var(--a)) translateX(var(--d)) scale(.4)}}
 /* pocket rings */
 .pk-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.ring{width:56px;height:56px;flex:none}
 .ring text{font:600 12px var(--mono);fill:var(--ink)}.ring-v{animation:ring 1.2s var(--e-out) .15s forwards}
@@ -1166,6 +1170,12 @@ function show(view) {
 }
 
 /* ---------- today ---------- */
+function celebrate() {
+  // Payday: a short burst of sparks from the hero, once per payday.
+  const h = $('.hero'); if (!h) return; const box = document.createElement('div'); box.className = 'burst';
+  box.innerHTML = Array.from({length: 28}, (_, i) => `<i style="--a:${i * 360 / 28}deg;--d:${80 + (i % 5) * 26}px;--c:${['var(--sig)', '#fff', 'var(--ag)', 'var(--em)'][i % 4]};animation-delay:${(i % 7) * 30}ms"></i>`).join('');
+  h.appendChild(box); setTimeout(() => box.remove(), 1800); toast("It's payday. Your payday moves are ready below.");
+}
 const counted = {};
 // One highlight that glides between tabs (bottom bar on phones, side rail on laptops).
 function movePill() {
@@ -1289,6 +1299,7 @@ function renderToday(d) {
   drawTree(d);
   renderMoves(d);
   renderWeek(d);
+  if (d.safe.cycle.start === todayISO() && !reduce) { const k = 'baobab:payday:' + todayISO(); try { if (!localStorage.getItem(k)) { localStorage.setItem(k, 1); celebrate(); } } catch {} }
   for (const el of $$('#v-today [data-to]')) { const to = +el.dataset.to, key = 'c' + el.closest('[id]').id + [...el.parentNode.parentNode.children].indexOf(el.parentNode); el.dataset.v = counted[key] ?? 0; counted[key] = to; countUp(el, to); }
   // until payday
   if (d.fc) {
@@ -1324,7 +1335,9 @@ function renderToday(d) {
   // nudges
   const floor = S.plan.floor ?? 150, per = d.safe.cycle.planStarted ? d.safe.perDay : null;
   const guard = floor && per != null && per < floor && !d.safe.over ? [{tone: 'warn', title: `Running low: ${R(per)} a day until payday`, body: `That's under your R${floor} warning line. ${d.safe.days} days to go. Lean on everyday spending and pause wants for a few days.`}] : [];
-  const n = [...guard, ...B.liveAlerts(d.tx, d.liveOpen, d.fc, d.t), ...B.nudges(d.all, S.plan, d.t)];
+  const soon = (d.fc ? d.fc.bills : []).filter((b) => (B.D(b.date) - d.t) / 864e5 <= 2).map((b) => { const days = Math.round((B.D(b.date) - d.t) / 864e5);
+    return {tone: 'info', title: `${b.label}: ${R(b.amount)} ${days <= 0 ? 'goes off today' : days === 1 ? 'goes off tomorrow' : 'goes off in 2 days'}`, body: `Keep at least ${R(b.amount)} in your main account so it doesn't bounce.`}; });
+  const n = [...guard, ...soon, ...B.liveAlerts(d.tx, d.liveOpen, d.fc, d.t), ...B.nudges(d.all, S.plan, d.t)];
   for (const r of B.newCharges(d.tx)) n.unshift({tone: 'warn', title: `New repeating charge: ${r.label}`, body: `${R(r.monthly, r.monthly % 1 ? 2 : 0)} a month (${R(r.yearly)} a year), first seen recently. Keep it only if you use it.`});
   $('#noticeNote').textContent = `From your last ${B.fullMonths(d.all).slice(-3).length} full months`;
   const icon = {warn: '!', good: '✓', info: 'i'};
@@ -1594,7 +1607,10 @@ async function dataSheet() {
     <p class="soft small" style="margin-top:8px">Lost a phone? <button class="link" id="newKey">Disconnect every device</button> and open the new link again.</p>
     <h3 style="margin-top:22px">Live: every Capitec notification</h3>
     <p class="soft small" style="margin:6px 0 10px">${S.live.length ? `Working: the last one arrived ${esc(ago(S.live[S.live.length - 1].received || S.live[S.live.length - 1].date))}.` : 'Set up once on your iPhone. After that every purchase and payment lands here by itself.'}</p>
-    <details><summary class="soft small">Set up the iPhone Shortcut</summary>
+    <h3 style="margin-top:22px">Home Screen button: safe to spend</h3>
+    <p class="soft small" style="margin:6px 0 10px">A button on your iPhone that shows today's amount without opening Baobab. Tap below, then in Shortcuts: <b>+</b> → add <b>Get Contents of URL</b> (paste the link) → add <b>Show Result</b> → name it "Safe to spend" → Share → <b>Add to Home Screen</b>.</p>
+    <button class="btn ghost" id="copyToday" style="width:100%">Copy the button link</button>
+    <details style="margin-top:12px"><summary class="soft small">Set up the iPhone Shortcut</summary>
     <button class="btn" id="copyLink" style="width:100%">Copy your Shortcut link</button><input class="field" id="linkOut" readonly hidden style="width:100%;margin-top:8px">
     <ol class="how" style="margin-top:12px"><li>Shortcuts → <b>Automation</b> → <b>+</b> → <b>Notification</b> → app <b>Capitec</b> → <b>Run Immediately</b> → <b>Next</b> → <b>New Blank Automation</b> (tap <b>Edit</b> if it asks you to describe one).</li>
       <li>Search <b>Get Contents of URL</b> and tap it. Tap <b>URL</b>, paste the link, then tap <b>Select Variable</b> → <b>Shortcut Input</b> so it sits at the very end. Tap ✓ and go back. Done: nothing else to set.</li>
@@ -1620,6 +1636,7 @@ async function dataSheet() {
     if ($('#copyTok')) $('#copyTok').onclick = async () => { try { await navigator.clipboard.writeText($('#tok').textContent); toast('Token copied'); } catch { toast('Select the token and copy it.'); } };
     if ($('#newTok')) $('#newTok').onclick = async () => { try { const i = await gs('api_newToken'); $('#tok').textContent = i.token; toast('New token made. Update your Shortcut.'); } catch (er) { toast(er.message); } };
     if ($('#liveUrl')) $('#liveUrl').onchange = (e) => { S.liveUrl = e.target.value.trim(); Store.saveState({liveUrl: S.liveUrl}).catch(() => {}); };
+    if ($('#copyToday')) $('#copyToday').onclick = async () => { const link = `${String(info.url).split('?')[0]}?t=${encodeURIComponent(info.token)}&q=today`; try { await navigator.clipboard.writeText(link); toast('Link copied. Paste it in Shortcuts.'); } catch { toast('Copy failed. Try again.'); } };
     if ($('#copyApp')) $('#copyApp').onclick = async () => { try { await navigator.clipboard.writeText(info.appLink); toast('Link copied. Open it on your other device.'); } catch { toast('Long-press Open the Baobab app to copy it.'); } };
     if ($('#unlink')) $('#unlink').onclick = (e) => { if (e.target.dataset.sure) { localStorage.removeItem(RKEY); localStorage.removeItem(SNAP); location.reload(); } else { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to disconnect'; } };
     if ($('#newKey')) $('#newKey').onclick = async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = 'Tap again: every device signs out'; return; } try { const i = await gs('api_newAppKey'); if (REMOTE) { const h = new URLSearchParams(i.appLink.split('#')[1]); localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); } toast('Done. Open the new link on your other devices.'); closeSheet(); } catch (er) { toast(er.message); } };
