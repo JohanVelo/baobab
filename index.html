@@ -145,6 +145,10 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 /* everything you have */
 .stack{display:flex;height:14px;border-radius:99px;overflow:hidden;gap:2px;animation:arrive .8s var(--e-out) both}.stack span{min-width:3px;transition:flex .6s var(--e-out)}
 .accform{display:grid;grid-template-columns:1fr 90px 140px auto;gap:8px;margin-top:14px}@media(max-width:600px){.accform{grid-template-columns:1fr 1fr}.accform .field:first-child{grid-column:1/-1}}
+/* review inbox */
+.inbox{border:1px solid color-mix(in oklab,var(--sig) 35%,transparent)}
+.ib{padding:12px 0;border-top:1px solid var(--line);transition:opacity .35s var(--e-out),transform .35s var(--e-out)}.ib:first-child{border-top:0;padding-top:0}
+.ib.done{opacity:0;transform:translateX(30px)}.ib-top{display:flex;justify-content:space-between;margin-bottom:8px}.ib .qcats{margin:0}
 /* month review */
 .rv-figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px}.rv-figs small{display:block;font:11px var(--mono);color:var(--soft)}.rv-figs b{font:800 24px/1.2 'Schibsted Grotesk',sans-serif;letter-spacing:-.03em}
 .rv-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.rv-cols{grid-template-columns:1fr}}
@@ -330,6 +334,7 @@ tr.stopped td{color:var(--soft)}
         </div>
         <div class="tree" id="tree" role="img" aria-label="This pay cycle, day by day"></div>
       </div>
+      <div class="card inbox" id="inboxCard" hidden><div class="card-h"><h2>To review</h2><span class="soft small" id="inboxNote"></span></div><div id="inbox"></div></div>
       <div class="card" id="movesCard" hidden><div class="card-h"><h2>Latest money moves</h2><span class="soft small" id="movesNote"></span></div><div id="moves"></div><div class="moves-foot" id="movesFoot"></div></div>
       <div class="cols">
         <div class="card"><div class="card-h"><h2 id="fcTitle">Until payday</h2><span class="soft small" id="fcNote"></span></div>
@@ -347,6 +352,7 @@ tr.stopped td{color:var(--soft)}
     <section class="view" id="v-spending" hidden>
       <div class="head"><h1 id="spendTitle">Spending</h1></div>
       <div class="chips" id="monthChips" role="group" aria-label="Month"></div>
+      <div class="card review" id="yearCard"><div class="card-h"><h3 id="yrHead">Your year</h3><span class="soft small">last 12 months</span></div><div id="year"></div></div>
       <div class="card review" id="reviewCard"><div class="card-h"><h3 id="revHead">Month in review</h3><span class="soft small" id="revNote"></span></div><div id="review"></div></div>
       <div class="card"><div class="card-h"><h3 id="flowHead">Where the money flowed</h3><span class="soft small" id="flowNote"></span></div><div class="flow" id="flow" role="img"></div></div>
       <div class="card"><div class="card-h"><h3>Your main account balance</h3><span class="soft small" id="balNote"></span></div><div class="chart" id="balChart" style="min-height:220px"></div></div>
@@ -356,7 +362,7 @@ tr.stopped td{color:var(--soft)}
         <div class="card"><div class="card-h"><h3 id="catHead">Where it went</h3><span class="soft small">against your 3-month average</span></div><div id="cats"></div></div>
       </div>
       <div class="cols">
-        <div class="card"><div class="card-h"><h3 id="repHead">What repeats</h3></div><div class="scroll"><table><thead><tr><th>Charge</th><th class="r">Day</th><th class="r">Monthly</th><th class="r">Yearly</th></tr></thead><tbody id="rep"></tbody></table></div></div>
+        <div class="card"><div class="card-h"><h3 id="repHead">What repeats</h3><span class="soft small" id="repNext"></span></div><div class="scroll"><table><thead><tr><th>Charge</th><th class="r">Day</th><th class="r">Monthly</th><th class="r">Yearly</th></tr></thead><tbody id="rep"></tbody></table></div></div>
         <div class="card"><div class="card-h"><h3 id="funHead">Games, hobbies and betting</h3></div><div id="fun"></div></div>
       </div>
     </section>
@@ -1247,6 +1253,20 @@ function renderWeek(d) {
     <p class="small" style="margin:12px 0 4px">${!norm ? 'Not enough history yet to compare.' : Math.abs(diff) < norm * 0.1 ? 'About normal.' : diff > 0 ? `<b style="color:var(--bad)">${R(diff)} more</b> than usual.` : `<b style="color:var(--good)">${R(-diff)} less</b> than usual.`} ${w.count} payments.</p>
     ${w.top.map((x) => `<div class="bill"><span class="d">top</span><span>${esc(x.label)}</span><span class="num" style="font-weight:600">${R(x.amount)}</span></div>`).join('')}`;
 }
+function renderInbox(d) {
+  // New payments Baobab couldn't place: one tap files the shop for good (Copilot-style review queue).
+  const seen = new Set(S.plan.reviewed || []), since = new Date(d.t.getTime() - 45 * 864e5).toISOString().slice(0, 10);
+  const items = d.all.filter((t) => t.date >= since && t.amount < 0 && t.category === 'Other' && !seen.has(t.merchant)).reverse();
+  const uniq = []; const got = new Set(); for (const t of items) if (!got.has(t.merchant)) { got.add(t.merchant); uniq.push(t); }
+  $('#inboxCard').hidden = !uniq.length; if (!uniq.length) return;
+  $('#inboxNote').textContent = `${uniq.length} ${uniq.length === 1 ? 'shop' : 'shops'} to sort`;
+  const picks = ['Eating out', 'Groceries', 'Fuel & transport', 'Online shopping', 'Gifts & people', 'Clothing', 'Home', 'Games & fun'];
+  $('#inbox').innerHTML = uniq.slice(0, 4).map((t) => `<div class="ib" data-m="${esc(t.merchant)}"><div class="ib-top"><b>${esc(B.labelOf(t.merchant))}</b><span class="num">${R(t.amount, 2)}</span></div>
+    <div class="qcats">${picks.map((c) => `<button class="chip" data-file="${esc(c)}">${esc(c)}</button>`).join('')}<button class="chip" data-file="">Keep as Other</button></div></div>`).join('');
+  for (const b of $$('#inbox [data-file]')) b.onclick = () => { const box = b.closest('.ib'), m = box.dataset.m, c = b.dataset.file;
+    if (c) S.overrides[m] = c; S.plan.reviewed = [...(S.plan.reviewed || []), m].slice(-300); box.classList.add('done');
+    persist(['overrides', 'plan']); toast(c ? `${B.labelOf(m)} → ${c}` : 'Kept as Other'); setTimeout(render, 380); };
+}
 function renderMoves(d) {
   // What changed since the last statement: every live payment with where and what, then what it did to your money.
   const mv = d.liveOpen.slice().sort((a, b) => String(b.received || b.date).localeCompare(String(a.received || a.date)));
@@ -1260,6 +1280,7 @@ function renderMoves(d) {
     + (mv.length > 6 ? `<button class="link" data-view="activity" style="margin-top:6px">See all ${mv.length}</button>` : '');
   const out = mv.filter((t) => t.amount < 0).reduce((a, t) => a - t.amount, 0), inn = mv.filter((t) => t.amount > 0).reduce((a, t) => a + t.amount, 0);
   const facts = [`<span><small>Moved</small><b class="num">${out ? '−' + R(out, 2) : 'R0'}${inn ? ` · +${R(inn, 2)}` : ''}</b></span>`];
+  if (d.fc && d.fc.daily > 0) facts.push(`<span><small>Lasts at your usual pace</small><b class="num">${Math.floor(Math.max(0, d.fc.start) / d.fc.daily)} days</b></span>`);
   if (d.fc && d.fc.bankAsOf) facts.push(`<span><small>Balance per Capitec</small><b class="num">${R(d.fc.start, 2)}</b></span>`);
   const c = d.safe.cycle;
   if (S.plan.take_home && c.planStarted && !d.safe.over) {
@@ -1297,6 +1318,7 @@ function renderToday(d) {
     <div class="mini"><span>Main account</span><b class="num" ${bal == null ? '' : `data-to="${Math.round(bal)}"`}>${bal == null ? '—' : R(bal)}</b><span>${d.fc && d.fc.bankAsOf ? 'per Capitec ' + (String(d.fc.bankAsOf).length > 10 ? new Date(d.fc.bankAsOf).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false}) : fmtDay(d.fc.bankAsOf)) : d.liveOpen.length ? `incl. ${d.liveOpen.length} live` : d.fc ? fmtDay(d.fc.asOf) : ''}</span></div>
     <div class="mini"><span>Payday</span><b>${c.days <= 0 ? 'Today' : c.days === 1 ? 'Tomorrow' : c.days + ' days'}</b><span>${payDate}</span></div>`;
   drawTree(d);
+  renderInbox(d);
   renderMoves(d);
   renderWeek(d);
   if (d.safe.cycle.start === todayISO() && !reduce) { const k = 'baobab:payday:' + todayISO(); try { if (!localStorage.getItem(k)) { localStorage.setItem(k, 1); celebrate(); } } catch {} }
@@ -1434,6 +1456,17 @@ function drawHeat(d) {
   $('#heat').innerHTML = html;
   $('#heatLegend').innerHTML = `less ${[0, 1, 2, 3, 4, 5].map((i) => `<i class="hc l${i}" style="display:inline-block;margin:0 1px;vertical-align:-1px"></i>`).join('')} more`;
 }
+function renderYear(d) {
+  const ms = d.months.slice(-12); if (ms.length < 2) { $('#yearCard').hidden = true; return; } $('#yearCard').hidden = false;
+  const inc = ms.reduce((a, m) => a + m.income, 0), out = ms.reduce((a, m) => a + m.spent, 0), full = ms.filter((m) => m.month !== d.cur), best = (full.length ? full : ms).reduce((a, m) => (m.spent < a.spent ? m : a)), worst = (full.length ? full : ms).reduce((a, m) => (m.spent > a.spent ? m : a));
+  const from = ms[0].month, by = new Map(); for (const t of d.all) if (t.date >= from && t.amount < 0 && ['bills', 'everyday', 'wants'].includes(B.groupOf(t.category))) by.set(t.category, (by.get(t.category) || 0) - t.amount);
+  const cats = [...by].sort((a, b) => b[1] - a[1]).slice(0, 6), mx = cats.length ? cats[0][1] : 1;
+  $('#yrHead').textContent = `${ms.length} months: ${R(out)} spent`;
+  $('#year').innerHTML = `<div class="rv-figs"><div><small>Money in</small><b class="num" data-to="${Math.round(inc)}">${R(inc)}</b></div><div><small>Spent</small><b class="num" data-to="${Math.round(out)}">${R(out)}</b></div><div><small>${inc >= out ? 'Kept' : 'Short'}</small><b class="num" style="color:var(--${inc >= out ? 'good' : 'bad'})">${R(Math.abs(inc - out))}</b></div></div>
+    <div class="rv-cols"><div><h4>Biggest categories</h4>${cats.map(([c, v]) => `<div class="row"><span class="name">${esc(c)}</span><div class="track"><div class="fill" style="width:${v / mx * 100}%;background:${B.groupOf(c) === 'wants' ? 'var(--go)' : B.groupOf(c) === 'everyday' ? 'var(--em)' : 'color-mix(in oklab,var(--ink) 45%,transparent)'}"></div></div><span class="r num">${R(v)}</span></div>`).join('')}</div>
+    <div><h4>Months</h4><div class="bill"><span class="d" style="color:var(--good)">best</span><span>${longMonth(best.month)}</span><span class="num">${R(best.spent)}</span></div><div class="bill"><span class="d" style="color:var(--bad)">most</span><span>${longMonth(worst.month)}</span><span class="num">${R(worst.spent)}</span></div><div class="bill"><span class="d">avg</span><span>A usual month</span><span class="num">${R(out / ms.length)}</span></div></div></div>`;
+  for (const el of $$('#year [data-to]')) countUp(el, +el.dataset.to);
+}
 function renderReview(d) {
   const r = B.monthReview(d.all, S.month); if (!r) { $('#reviewCard').hidden = true; return; } $('#reviewCard').hidden = false;
   const pct = r.prevSpent ? Math.round((r.spent - r.prevSpent) / r.prevSpent * 100) : null, pm = r.prevMonth ? longMonth(r.prevMonth) : '';
@@ -1461,7 +1494,7 @@ function renderSpending(d) {
   const sel = months.find((m) => m.month === S.month) || months[months.length - 1];
   $('#spendTitle').textContent = `${R(sel.spent)} spent in ${longMonth(sel.month)}${sel.month === d.cur ? ' so far' : ''}`;
   drawMonths(months);
-  drawFlow(d); drawBalance(d); renderReview(d);
+  drawFlow(d); drawBalance(d); renderReview(d); renderYear(d);
   const tx = d.all.filter((t) => t.date.startsWith(S.month) && ['bills', 'everyday', 'wants'].includes(B.groupOf(t.category)));
   const by = new Map(); for (const t of tx) by.set(t.category, (by.get(t.category) || 0) - t.amount);
   const avg = new Map(B.categoryAverages(d.all).rows.map((r) => [r.category, r.avg]));
@@ -1471,6 +1504,8 @@ function renderSpending(d) {
     return `<button class="rowbtn" data-cat="${esc(c)}"><div class="row"><span class="name">${esc(c)}</span><div class="track"><div class="fill" style="width:${v / max * 100}%;background:${g === 'wants' ? 'var(--go)' : 'color-mix(in oklab,var(--ink) 65%,transparent)'}"></div></div><span class="r"><span class="num" style="font-weight:600">${R(v)}</span><br><span class="delta num" style="color:${dlt > a * .15 && dlt > 100 ? 'var(--bad)' : dlt < -100 ? 'var(--good)' : 'var(--soft)'}">${a ? (dlt >= 0 ? '+' : '−') + R(Math.abs(dlt)).slice(1) : 'new'}</span></span></div></button>`; }).join('') || '<p class="soft">Nothing spent yet this month.</p>';
   const rec = B.recurring(d.all), act = rec.filter((r) => r.status === 'active'), tot = act.reduce((a, r) => a + r.monthly, 0);
   $('#repHead').textContent = `${act.length} charges repeat: ${R(tot)} a month`;
+  { const t0 = B.D(todayISO()), nx = act.map((r) => { let dt = new Date(Date.UTC(t0.getUTCFullYear(), t0.getUTCMonth(), r.day, 12)); if (dt < t0) dt = new Date(Date.UTC(t0.getUTCFullYear(), t0.getUTCMonth() + 1, r.day, 12)); return {r, dt}; }).sort((a, b) => a.dt - b.dt)[0];
+    $('#repNext').textContent = nx ? `next: ${nx.r.label} on ${fmtDay(nx.dt.toISOString().slice(0, 10))}` : ''; }
   $('#rep').innerHTML = rec.map((r) => `<tr class="${r.status}"><td>${esc(r.label)}${r.status === 'stopped' ? ` <span class="tag">stopped ${fmtDay(r.last)}</span>` : ''}</td><td class="r num">${r.day}</td><td class="r num">${R(r.monthly, r.monthly % 1 ? 2 : 0)}</td><td class="r num">${R(r.yearly)}</td></tr>`).join('');
   const f = B.funSpend(d.all), fm = Math.max(1, ...f.merchants.map((m) => m.avg));
   $('#funHead').textContent = `Games, hobbies and betting: ${R(f.avg)} a month`;
