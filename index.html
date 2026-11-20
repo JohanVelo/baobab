@@ -142,6 +142,9 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .cmp{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--line);font-size:14px}
 .seg{display:flex;gap:6px;flex-wrap:wrap}.seg .chip{font:500 13px 'Schibsted Grotesk',sans-serif;min-height:40px}
 .qcats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.qcats .chip{font:500 13px 'Schibsted Grotesk',sans-serif;min-height:40px}
+/* everything you have */
+.stack{display:flex;height:14px;border-radius:99px;overflow:hidden;gap:2px;animation:arrive .8s var(--e-out) both}.stack span{min-width:3px;transition:flex .6s var(--e-out)}
+.accform{display:grid;grid-template-columns:1fr 90px 140px auto;gap:8px;margin-top:14px}@media(max-width:600px){.accform{grid-template-columns:1fr 1fr}.accform .field:first-child{grid-column:1/-1}}
 /* pocket rings */
 .pk-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.ring{width:56px;height:56px;flex:none}
 .ring text{font:600 12px var(--mono);fill:var(--ink)}.ring-v{animation:ring 1.2s var(--e-out) .15s forwards}
@@ -345,6 +348,7 @@ tr.stopped td{color:var(--soft)}
 
     <section class="view" id="v-pockets" hidden>
       <div class="head"><div><h1 id="pocketTitle">Pockets</h1><p class="soft">Each pocket has one job.</p></div><button class="btn ghost" data-open="plan">Edit plan</button></div>
+      <div class="card" id="worthCard"><div class="card-h"><h2 id="worthHead">Everything you have</h2><span class="soft small" id="worthNote"></span></div><div id="worth"></div></div>
       <div class="pockets" id="pocketList"></div>
       <div class="card"><div class="card-h"><h3 id="projHead">The road ahead</h3><span class="legend" id="projLegend"></span></div><div class="chart" id="projChart" style="min-height:300px"></div>
         <p class="soft small" style="margin-top:8px">After each payday, before interest, growth and bonuses. Wants and Yearly costs get spent, so they aren't counted.</p></div>
@@ -1034,7 +1038,8 @@ function persist(keys = ['plan', 'overrides', 'ticks']) {
 /* ---------- derived data ---------- */
 function derive() {
   const t = today();
-  const tx = B.refunds(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)));
+  const sp = S.plan.splits || {};
+  const tx = B.refunds(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x))).map((x) => (sp[x.id] != null && x.amount < 0 ? {...x, full: x.amount, amount: -sp[x.id], split: true} : x));
   const liveTx = B.liveToTx(S.live, S.overrides, tx), rc = B.reconcile(tx, liveTx), all = B.allTx(tx, rc.open);
   return {t, tx, all, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
     cl: B.checklist(S.plan, t, new Set(S.ticks)), proj: B.project(S.plan, t, 14), safe: B.safeToSpend(all, S.plan, t),
@@ -1284,7 +1289,9 @@ function renderToday(d) {
   $('#goals').innerHTML = gd.map((g) => `<div class="goal"><div class="meter-top"><span>${g.goal ? `<b>${esc(g.goal)}</b> <span class="soft small">${esc(g.name)}</span>` : `<b>${esc(g.name)}</b>`}</span><span class="num soft small">${g.done ? '<span class="tag good">Reached</span>' : g.month ? 'by ' + longMonth(g.month) + ' ' + g.month.slice(0, 4) : 'over 6 years'}</span></div>
     <div class="track"><div class="fill" style="background:${COL[g.key] || 'var(--acc)'};width:${Math.min(100, g.balance / g.target * 100)}%"></div></div><span class="soft small num">${R(g.balance)} of ${R(g.target)}</span></div>`).join('') || '<p class="soft">Add a target to a pocket to track a goal.</p>';
   // nudges
-  const n = [...B.liveAlerts(d.tx, d.liveOpen, d.fc, d.t), ...B.nudges(d.all, S.plan, d.t)];
+  const floor = S.plan.floor ?? 150, per = d.safe.cycle.planStarted ? d.safe.perDay : null;
+  const guard = floor && per != null && per < floor && !d.safe.over ? [{tone: 'warn', title: `Running low: ${R(per)} a day until payday`, body: `That's under your R${floor} warning line. ${d.safe.days} days to go. Lean on everyday spending and pause wants for a few days.`}] : [];
+  const n = [...guard, ...B.liveAlerts(d.tx, d.liveOpen, d.fc, d.t), ...B.nudges(d.all, S.plan, d.t)];
   for (const r of B.newCharges(d.tx)) n.unshift({tone: 'warn', title: `New repeating charge: ${r.label}`, body: `${R(r.monthly, r.monthly % 1 ? 2 : 0)} a month (${R(r.yearly)} a year), first seen recently. Keep it only if you use it.`});
   $('#noticeNote').textContent = `From your last ${B.fullMonths(d.all).slice(-3).length} full months`;
   const icon = {warn: '!', good: '✓', info: 'i'};
@@ -1416,7 +1423,31 @@ function drawMonths(months) {
 }
 
 /* ---------- pockets ---------- */
+// Other accounts and foreign money, converted to rand with today's rate (cached for the day).
+const FX = {rates: null};
+async function fxRates() {
+  if (FX.rates) return FX.rates;
+  try { const c = JSON.parse(localStorage.getItem('baobab:fx') || 'null'); if (c && c.day === todayISO()) return (FX.rates = c.rates); } catch {}
+  try { const r = await (await fetch('https:' + '//api.frankfurter.app/latest?from=ZAR&to=USD,EUR,GBP')).json(); const rates = {ZAR: 1}; for (const [k, v] of Object.entries(r.rates || {})) rates[k] = 1 / v;
+    FX.rates = rates; try { localStorage.setItem('baobab:fx', JSON.stringify({day: todayISO(), rates})); } catch {} return rates; } catch { return null; }
+}
+function renderWorth(d) {
+  const acc = S.plan.accounts || [], rates = FX.rates, inR = (a) => (a.cur === 'ZAR' ? +a.balance : rates && rates[a.cur] ? a.balance * rates[a.cur] : null);
+  const main = d.fc ? d.fc.start : 0, parts = [['Main account', main, 'var(--ink)'], ...S.plan.pockets.filter((p) => +p.balance > 0).map((p) => [p.name, +p.balance, COL[p.key] || 'var(--soft)']), ...acc.map((a) => [a.name, inR(a) || 0, 'color-mix(in oklab,var(--sig) 70%,var(--em))'])];
+  const total = parts.reduce((x, p) => x + Math.max(0, p[1]), 0) || 1;
+  $('#worthHead').textContent = `${R(total)} everything you have`;
+  $('#worthNote').textContent = acc.some((a) => a.cur !== 'ZAR') ? (rates ? 'foreign money at today’s rate' : 'getting today’s rate…') : '';
+  $('#worth').innerHTML = `<div class="stack">${parts.filter((p) => p[1] > 0).map((p) => `<span style="flex:${p[1]};background:${p[2]}" title="${esc(p[0])}: ${R(p[1])}"></span>`).join('')}</div>
+    <div class="legend" style="margin:10px 0 6px">${parts.filter((p) => p[1] > 0).map((p) => `<span><i style="background:${p[2]}"></i>${esc(p[0])} ${R(p[1])}</span>`).join('')}</div>
+    ${acc.map((a, i) => `<div class="bill"><span class="d">${esc(a.cur)}</span><span>${esc(a.name)} <span class="soft small">${a.cur === 'ZAR' ? '' : (a.cur === 'USD' ? '$' : a.cur === 'EUR' ? '€' : '£') + (+a.balance).toLocaleString('en-US') + (inR(a) != null ? ' = ' + R(inR(a)) : '')}</span></span><button class="link" data-delacc="${i}">Remove</button></div>`).join('')}
+    <form id="accForm" class="accform"><input class="field" id="accName" placeholder="Other account (e.g. FNB credit card, US savings)" aria-label="Account name"><select class="field" id="accCur" aria-label="Currency"><option>ZAR</option><option>USD</option><option>EUR</option><option>GBP</option></select><input class="field" id="accBal" inputmode="decimal" placeholder="Balance (owed: -)" aria-label="Balance"><button class="btn ghost">Add</button></form>`;
+  $('#accForm').onsubmit = (e) => { e.preventDefault(); const name = $('#accName').value.trim(), raw = $('#accBal').value.trim(); if (!name || !raw) return toast('Add a name and a balance.');
+    const v = B.amountOf(raw) * (raw.includes('-') ? -1 : 1); S.plan.accounts = [...acc, {name: name.slice(0, 40), cur: $('#accCur').value, balance: v}]; persist(['plan']); render(); toast(`${name} added`); };
+  for (const b of $$('[data-delacc]')) b.onclick = () => { S.plan.accounts = acc.filter((_, i) => i !== +b.dataset.delacc); persist(['plan']); render(); };
+  if (!rates && acc.some((a) => a.cur !== 'ZAR')) fxRates().then((r) => r && S.view === 'pockets' && renderWorth(derive()));
+}
 function renderPockets(d) {
+  renderWorth(d);
   $('#pocketTitle').textContent = `${R(d.stored)} saved`;
   $('#pocketList').innerHTML = S.plan.pockets.map((p) => {
     const pct = p.target ? Math.min(100, p.balance / p.target * 100) : null;
@@ -1474,7 +1505,7 @@ function renderActivity(d) {
   for (const t of list.slice(0, S.txLimit)) {
     if (t.date !== lastDay) { const v = dayNet.get(t.date); html += `<div class="day"><span>${t.date === todayISO() ? 'Today' : fmtDow(t.date) + ' ' + t.date.slice(0, 4)}</span>${v ? `<span class="num">${R(v)} spent</span>` : ''}</div>`; lastDay = t.date; }
     const label = B.labelOf(t.merchant);
-    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}${t.refund ? ' <span class="tag good">Refund</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
+    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}${t.refund ? ' <span class="tag good">Refund</span>' : ''}${t.split ? ' <span class="tag">Your share</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
   }
   $('#txList').innerHTML = html || '<p class="soft" style="padding:20px 0">Nothing matches.</p>';
   $('#txMore').hidden = list.length <= S.txLimit; $('#txMore').textContent = `Show more (${list.length - S.txLimit} left)`;
@@ -1555,9 +1586,11 @@ function txSheet(id) {
     <div class="fig" style="font-size:34px;font-weight:700;margin-bottom:10px">${R(t.amount, 2)}</div>
     ${((past) => `<div class="moves-foot" style="margin:0 0 16px;padding:12px 0 0">${t.received ? `<span><small>Time</small><b>${new Date(t.received).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false})}</b></span>` : ''}${t.avail != null ? `<span><small>Balance after</small><b class="num">${R(t.avail, 2)}</b></span>` : ''}${past.length ? `<span><small>Visits on statements</small><b>${past.length}× · ${R(past.reduce((a, x) => a - x.amount, 0) / past.length)} avg</b></span>` : `<span><small>Visits on statements</small><b>First time</b></span>`}</div>`)(derive().tx.filter((x) => x.merchant === t.merchant && x.amount < 0 && x.id !== t.id))}
     <p class="small soft" style="margin-bottom:6px">Tap a category</p><div class="qcats">${(() => { const use = new Map(); for (const x of S.tx) use.set(x.category, (use.get(x.category) || 0) + 1); return [...use].filter(([c]) => B.CATEGORIES.includes(c) && c !== 'Pocket transfer').sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c]) => `<button class="chip qc" data-qc="${esc(c)}" aria-pressed="${c === t.category}">${esc(c)}</button>`).join(''); })()}</div>
+    ${t.amount < 0 && !t.live ? `<p class="small soft" style="margin-bottom:6px">Shared bill? Only your share counts${t.split ? ` (full bill ${R(-t.full, 2)})` : ''}</p><div class="qcats">${[1, 2, 3, 4].map((n) => `<button class="chip" data-split="${n}" aria-pressed="${n === 1 ? !t.split : t.split && Math.abs(-t.full / n + t.amount) < 0.01}">${n === 1 ? 'All mine' : 'Split ' + n + ' ways'}</button>`).join('')}</div>` : ''}
     <label class="small soft" for="recat">Or pick any category</label><select id="recat" style="width:100%;margin:6px 0 10px">${B.CATEGORIES.map((c) => `<option${c === t.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
     <p class="soft small" style="margin-bottom:14px">Baobab uses this for every payment to ${esc(B.labelOf(t.merchant))}, now and later.</p>
     <div style="display:flex;gap:10px"><button class="btn" id="saveCat" style="flex:1">Save</button>${t.live ? '<button class="btn danger" id="delLive">Remove</button>' : ''}</div>`, () => {
+    for (const b of $$('[data-split]')) b.onclick = () => { const n = +b.dataset.split, full = -(t.full ?? t.amount); S.plan.splits = {...(S.plan.splits || {})}; if (n === 1) delete S.plan.splits[t.id]; else S.plan.splits[t.id] = Math.round(full / n * 100) / 100; persist(['plan']); closeSheet(); render(); toast(n === 1 ? 'Counted in full' : `Counting your share: ${R(full / n, 2)}`); };
     for (const b of $$('.qc')) b.onclick = () => { $('#recat').value = b.dataset.qc; $('#saveCat').click(); };
     $('#saveCat').onclick = () => { S.overrides[t.merchant] = $('#recat').value; persist(['overrides']); closeSheet(); render(); toast(`${B.labelOf(t.merchant)} is now ${S.overrides[t.merchant]}`); };
     if ($('#delLive')) $('#delLive').onclick = async () => { await Store.deleteLive([t.liveId]); S.live = S.live.filter((l) => l.id !== t.liveId); closeSheet(); render(); toast('Removed'); };
@@ -1579,6 +1612,8 @@ function planSheet() {
   openSheet(`<h2 id="sheetTitle">Your plan</h2>
     <h3 style="margin:14px 0 6px">Daily allowance</h3>${seg('daily', [['rollover', 'Unspent rolls over'], ['steady', 'Same every day']])}
     <p class="soft small" style="margin:6px 0 12px">Rolls over: a cheap day gives you more tomorrow. Same every day: a fixed amount, and what you don't use is shown as money to move to Goals on payday.</p>
+    <h3 style="margin:4px 0 6px">Warn me when the daily amount drops below</h3>${seg('floor', [[0, 'Off'], [100, 'R100'], [150, 'R150'], [250, 'R250']])}
+    <p class="soft small" style="margin:6px 0 12px"></p>
     <h3 style="margin:4px 0 6px">Weekends</h3>${seg('weekend', [[1, 'Every day the same'], [1.5, 'More on Fri to Sun']])}
     <p class="soft small" style="margin:6px 0 16px">More on Fri to Sun gives weekends 1.5× a weekday. The total for the pay cycle doesn't change.</p>
     <p class="soft small" style="margin:4px 0 16px">Rand amounts. Pocket balances: what the bank app shows today.</p><form id="planForm">
