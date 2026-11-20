@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en-ZA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d0f">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Baobab">
+<meta name="description" content="Baobab: your private money app."><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-180.png">
+<title>Baobab</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23101316'/%3E%3Crect x='14' y='40' width='7' height='10' rx='2' fill='%23e9ebe8'/%3E%3Crect x='25' y='31' width='7' height='19' rx='2' fill='%23e9ebe8'/%3E%3Crect x='36' y='22' width='7' height='28' rx='2' fill='%23e9ebe8'/%3E%3Ccircle cx='48' cy='16' r='5' fill='%23ff6a2b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE   a precise money instrument: one clear number first, exact figures, plain words
+   IDEA    a pay cycle is a runway, from one payday to the next; every day leaves a mark
+   PICTURE a graphite instrument panel: the cycle drawn as a strip of daily ticks, today as a signal cursor
+   COLOUR  graphite and paper-grey ground, one signal orange for "now" and wants; cobalt, jade, orange pockets
+   TYPE    Schibsted Grotesk for figures and text, Geist Mono for dates, labels and readouts
+   LAYOUT  phone: one view at a time with a bottom tab bar; desktop: left rail, two columns */
+:root{color-scheme:light dark;
+--bg:light-dark(#eef0f1,#0b0d0f);--surface:light-dark(#e6e9eb,#121518);--raise:light-dark(#ffffff,#15181b);
+--ink:light-dark(#0d1013,#eceeec);--soft:light-dark(#5b636b,#8d959c);--line:light-dark(#dde1e4,#23282d);
+--band:#101316;--band2:#15191d;--bandink:#f1f2ef;--bandsoft:#8f979e;--bandline:#262c32;
+--sig:light-dark(#d9480f,#ff6a2b);
+--em:light-dark(#2f5fd0,#5a7fe8);--ag:light-dark(#0f9a76,#16a37c);--go:light-dark(#c2410c,#e4652a);
+--acc:light-dark(#0d1013,#eceeec);--accink:light-dark(#ffffff,#0b0d0f);
+--good:light-dark(#18794e,#3dd68c);--warn:light-dark(#9a6200,#f0b04a);--bad:light-dark(#c4320a,#ff6b5b);
+--e-out:cubic-bezier(.2,.8,.2,1);--e-sheet:cubic-bezier(.32,.72,0,1);--d1:140ms;--d2:280ms;--d3:900ms;
+--r:16px;--mono:"Geist Mono",ui-monospace,monospace;
+--shadow:0 1px 0 light-dark(#ffffff,#ffffff08) inset,0 1px 2px light-dark(#0d10130d,#0006),0 12px 32px -20px light-dark(#0d101340,#000a)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Schibsted Grotesk",system-ui,sans-serif;overflow-x:clip;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+::selection{background:color-mix(in oklab,var(--sig) 30%,transparent)}
+h1,h2,h3,.fig{font-family:"Schibsted Grotesk",sans-serif;letter-spacing:-.025em;margin:0}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.05;font-weight:800;text-wrap:balance}
+h2{font-size:20px;line-height:1.2;font-weight:700}
+h3{font-size:16px;font-weight:700;line-height:1.3;letter-spacing:-.01em}
+p{margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--sig);outline-offset:2px;border-radius:6px}
+.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.soft{color:var(--soft)}.small{font-size:14px}
+.mono{font-family:var(--mono);font-size:12px;letter-spacing:.02em}
+/* shell */
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100%}
+.rail{position:sticky;top:0;height:100vh;padding:22px 14px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;font:800 21px "Schibsted Grotesk",sans-serif;letter-spacing:-.035em;padding:2px 10px 22px}
+.tab{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border:0;border-radius:10px;background:none;color:var(--soft);font-weight:600;text-align:left;transition:background var(--d1),color var(--d1)}
+.tab svg{width:21px;height:21px;flex:none}
+.tab:hover{color:var(--ink)}
+.tab[aria-current=page]{background:var(--raise);color:var(--ink);box-shadow:var(--shadow)}
+.tab[aria-current=page]::after{content:"";position:absolute;right:12px;width:6px;height:6px;border-radius:50%;background:var(--sig)}
+.sync{margin-top:auto;font:12px/1.6 var(--mono);color:var(--soft);padding:12px;display:grid;gap:2px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--soft);margin-right:7px;vertical-align:1px}
+.dot.on{background:var(--good);box-shadow:0 0 0 0 color-mix(in oklab,var(--good) 60%,transparent);animation:pulse 2.4s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
+.topbar{display:none}
+.view{display:grid;gap:16px;animation:viewIn var(--d2) var(--e-out)}
+@keyframes viewIn{from{opacity:0}to{opacity:1}}
+#v-activity{animation:none}
+.head{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.card{background:var(--raise);border-radius:var(--r);padding:20px;box-shadow:var(--shadow)}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.card-h .soft.small{font:12px var(--mono)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:999px;border:1px solid transparent;background:var(--acc);color:var(--accink);font-weight:700;letter-spacing:-.01em;transition:transform var(--d1) var(--e-out),opacity var(--d1)}
+.btn:hover{opacity:.88}.btn:active{transform:scale(.97)}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--ink)}
+.btn.ghost:hover{border-color:var(--soft);opacity:1}
+.btn.danger{background:transparent;border-color:color-mix(in oklab,var(--bad) 50%,transparent);color:var(--bad)}
+.link{background:none;border:0;padding:0;min-height:32px;color:var(--ink);font-weight:700;font-size:14px;text-decoration:underline;text-decoration-color:var(--sig);text-decoration-thickness:2px;text-underline-offset:4px}
+.chip{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--raise);font:500 13px var(--mono);white-space:nowrap}
+.chip[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.tag{display:inline-block;font:600 11px/1.6 var(--mono);padding:1px 7px;border-radius:6px;white-space:nowrap;background:color-mix(in oklab,var(--soft) 14%,transparent);color:var(--soft);vertical-align:1px}
+.tag.good{background:color-mix(in oklab,var(--good) 15%,transparent);color:var(--good)}
+.tag.bad{background:color-mix(in oklab,var(--bad) 14%,transparent);color:var(--bad)}
+.tag.live{background:color-mix(in oklab,var(--sig) 15%,transparent);color:var(--sig)}
+.track{position:relative;height:8px;border-radius:99px;background:color-mix(in oklab,var(--ink) 8%,transparent);overflow:hidden}
+.fill{position:absolute;inset:0 auto 0 0;border-radius:99px;background:var(--acc);transform-origin:left;animation:grow var(--d3) var(--e-out) both}
+@keyframes grow{from{transform:scaleX(0)}}
+.pace{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--sig);border-radius:2px}
+/* hero: the instrument panel */
+.hero{position:relative;overflow:hidden;border-radius:22px;background:linear-gradient(180deg,var(--band2),var(--band));color:var(--bandink);display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);min-height:340px;box-shadow:0 1px 0 #ffffff12 inset,0 24px 60px -28px #000c}
+.hero::before{content:"";position:absolute;inset:0;background-image:linear-gradient(#ffffff07 1px,transparent 1px),linear-gradient(90deg,#ffffff07 1px,transparent 1px);background-size:24px 24px;mask-image:radial-gradient(120% 100% at 80% 20%,#000,transparent 75%);pointer-events:none}
+.hero-txt{padding:clamp(20px,3vw,30px);display:flex;flex-direction:column;gap:2px;z-index:1}
+.hero .label{color:var(--bandsoft);font:500 12px var(--mono);letter-spacing:.04em;display:flex;align-items:center;gap:8px}
+.hero .label::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--sig);box-shadow:0 0 12px var(--sig)}
+.hero .big{font:800 clamp(48px,7.6vw,84px)/.95 "Schibsted Grotesk",sans-serif;letter-spacing:-.05em;margin:12px 0 12px}
+.hero .big small{font:500 .2em var(--mono);letter-spacing:.02em;color:var(--bandsoft);margin-left:10px;vertical-align:.9em}
+.hero .sub{color:var(--bandsoft);max-width:40ch;font-size:15px}
+.hero .sub b{color:var(--bandink);font-weight:600}
+.minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:auto;padding-top:24px;border-top:1px solid var(--bandline)}
+.minis{margin-top:auto}
+.mini{padding:14px 12px 0 0}
+.mini+.mini{padding-left:14px;border-left:1px solid var(--bandline)}
+.mini span{display:block;font:11px/1.5 var(--mono);color:var(--bandsoft);letter-spacing:.03em}
+.mini b{display:block;font:700 21px/1.25 "Schibsted Grotesk",sans-serif;letter-spacing:-.03em;margin:2px 0}
+.tree{position:relative;min-height:290px;z-index:1}
+.tree svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.tree text{font:500 11px var(--mono);fill:var(--bandsoft);letter-spacing:.03em}
+.tree .hi{fill:var(--bandink);font-weight:600}
+.tree .sg{fill:var(--sig)}
+.tree .halo{paint-order:stroke;stroke:var(--band2);stroke-width:5px;stroke-linejoin:round;fill:var(--bandink)}
+.tick-bar{transform-box:fill-box;transform-origin:50% 100%;animation:rise .7s var(--e-out) both}
+@keyframes rise{from{transform:scaleY(0)}}
+.cursor{animation:blink 2.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.55}}
+/* motion: screen changes and the first arrival */
+::view-transition-old(root){animation:vt-out 160ms var(--e-out) both}::view-transition-new(root){animation:vt-in 300ms var(--e-out) both}
+@keyframes vt-out{to{opacity:0}}@keyframes vt-in{from{opacity:0;transform:translateY(6px)}}
+.view.enter>*{animation:arrive .6s var(--e-out) both}.view.enter>*:nth-child(2){animation-delay:70ms}.view.enter>*:nth-child(3){animation-delay:140ms}.view.enter>*:nth-child(4){animation-delay:210ms}.view.enter>*:nth-child(n+5){animation-delay:280ms}
+@keyframes arrive{from{opacity:0;transform:translateY(10px) scale(.995)}}
+.tx:active,.rowbtn:active,.tick:active{transform:scale(.985)}.tx,.rowbtn{transition:background var(--d1),transform var(--d1)}
+@media(hover:hover){.card{transition:box-shadow var(--d2)}.card:hover{box-shadow:var(--shadow),0 0 0 1px color-mix(in oklab,var(--ink) 8%,transparent)}}
+@media(display-mode:standalone){body{overscroll-behavior-y:none}}
+/* week */
+.wk{display:grid;gap:10px}.wk-row{display:grid;grid-template-columns:7.5em minmax(0,1fr) 5.5em;gap:12px;align-items:center;font-size:14px}.wk-row b{text-align:right;font-weight:700}
+/* latest money moves */
+#moves .tx:first-child{border-top:0}
+.moves-foot{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:12px;padding-top:14px;border-top:1px solid var(--line)}
+.moves-foot small{display:block;font:11px var(--mono);letter-spacing:.03em;color:var(--soft)}
+.moves-foot b{font:700 19px "Schibsted Grotesk",sans-serif;letter-spacing:-.02em}.moves-foot s{font-size:14px;font-weight:500;margin-left:4px}
+/* forecast */
+.chart{position:relative;min-height:200px}
+.chart svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.chart text{font:11px var(--mono);fill:var(--soft)}
+.chart .lab{fill:var(--ink);font-weight:600}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font:12px/1.5 var(--mono);padding:8px 10px;border-radius:8px;white-space:nowrap;opacity:0;transition:opacity var(--d1);z-index:3}
+.bill{display:grid;grid-template-columns:56px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line)}
+.bill .d{font:12px var(--mono);color:var(--soft)}
+/* steps */
+.steps{list-style:none;margin:0;padding:0}
+.step{display:grid;grid-template-columns:44px 40px minmax(0,1fr) auto;gap:4px 12px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.step:first-child{border-top:0;padding-top:0}
+.when{font:800 22px/1 "Schibsted Grotesk",sans-serif;letter-spacing:-.03em}.when small{display:block;font:11px var(--mono);color:var(--soft);margin-top:4px;letter-spacing:.03em}
+.tick{width:40px;height:40px;border-radius:12px;border:1.5px solid var(--line);background:none;display:grid;place-items:center;transition:background var(--d2) var(--e-out),border-color var(--d2)}
+.tick:hover{border-color:var(--soft)}
+.tick path{stroke-dasharray:24;stroke-dashoffset:24;transition:stroke-dashoffset var(--d2) var(--e-out)}
+.step.done .tick{background:var(--ink);border-color:var(--ink)}.step.done .tick path{stroke-dashoffset:0;stroke:var(--bg)}
+.step.done .what b{color:var(--soft);text-decoration:line-through}
+.what b{font-weight:600;display:block}.what span{font-size:13px;color:var(--soft)}
+.amt{font:700 17px "Schibsted Grotesk",sans-serif;letter-spacing:-.02em}
+/* nudges + goals */
+.nudges{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.nudge{border-radius:var(--r);padding:16px;background:var(--raise);box-shadow:var(--shadow);display:grid;gap:6px;align-content:start;border-top:3px solid var(--line)}
+.nudge b{font:700 16px/1.3 "Schibsted Grotesk",sans-serif;letter-spacing:-.015em}
+.nudge p{font-size:14px;color:var(--soft)}
+.nudge i{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-style:normal;font:700 13px var(--mono)}
+.nudge.warn{border-top-color:var(--warn)}.nudge.good{border-top-color:var(--good)}.nudge.info{border-top-color:var(--em)}
+.nudge.warn i{background:color-mix(in oklab,var(--warn) 18%,transparent);color:var(--warn)}
+.nudge.good i{background:color-mix(in oklab,var(--good) 18%,transparent);color:var(--good)}
+.nudge.info i{background:color-mix(in oklab,var(--em) 16%,transparent);color:var(--em)}
+.goal{display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--line)}.goal:first-child{border-top:0;padding-top:0}
+/* rows */
+.row{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr) 5.8em;gap:12px;align-items:center;min-height:44px}
+.rowbtn{width:100%;border:0;background:none;text-align:left;padding:0;border-top:1px solid var(--line)}
+.rowbtn:first-child{border-top:0}
+.rowbtn:hover .name{text-decoration:underline;text-decoration-color:var(--sig);text-underline-offset:3px}
+.rowbtn .track{height:10px;border-radius:0 4px 4px 0}.rowbtn .fill{border-radius:0 4px 4px 0}
+.delta{font:600 11px var(--mono)}
+.meter{display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+.meter:first-of-type{border-top:0;padding-top:0}
+.meter-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-weight:500}
+.over .fill{background:var(--bad)}
+/* pockets */
+.pockets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.pocket{position:relative;overflow:hidden;display:grid;gap:10px;align-content:start}
+.pocket::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;background:var(--c,var(--line))}
+.pocket .bal{font:800 34px/1 "Schibsted Grotesk",sans-serif;letter-spacing:-.04em}
+.pocket .job{font-size:14px;color:var(--soft)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font:12px var(--mono);color:var(--soft)}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px}
+/* activity */
+.search{display:flex;gap:10px;flex-wrap:wrap}
+.search input,.search select,.sheet select,.field{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--raise);font-size:16px;transition:border-color var(--d1)}
+.search input:focus,.field:focus{border-color:var(--soft);outline:none}
+.search input{flex:1 1 100%}.search select{flex:1 1 40%}
+.day{font:500 12px var(--mono);letter-spacing:.03em;color:var(--soft);padding:18px 0 6px;position:sticky;top:0;background:var(--bg);z-index:1}
+.tx{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;border:0;background:none;padding:10px 0;border-top:1px solid var(--line);text-align:left;transition:background var(--d1)}
+.tx:hover{background:color-mix(in oklab,var(--ink) 3%,transparent)}
+.tx .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--raise);box-shadow:var(--shadow);font:600 12px var(--mono);color:var(--ink);text-transform:uppercase}
+.tx b{font-weight:600;font-size:16px;color:var(--ink);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx span{font-size:13px;color:var(--soft)}
+.tx .in{color:var(--good)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{font:500 11px var(--mono);letter-spacing:.03em;color:var(--soft);text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+td{padding:10px 8px;border-bottom:1px solid var(--line)}
+.r{text-align:right}
+tr.stopped td{color:var(--soft)}
+.scroll{overflow-x:auto}
+/* sheet */
+.scrim{position:fixed;inset:0;background:#05070999;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity var(--d2);z-index:20}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{visibility:hidden;position:fixed;z-index:21;left:50%;bottom:0;width:min(580px,100%);max-height:88vh;overflow:auto;background:var(--raise);border-radius:22px 22px 0 0;padding:10px 22px calc(24px + env(safe-area-inset-bottom));transform:translate(-50%,105%);transition:transform 420ms var(--e-sheet),visibility 0s 420ms;box-shadow:0 -20px 60px #0006}
+.sheet.on{visibility:visible;transform:translate(-50%,0);transition:transform 420ms var(--e-sheet)}
+.grab{width:36px;height:4px;border-radius:9px;background:var(--line);margin:4px auto 16px}
+.drop{border:1.5px dashed var(--line);border-radius:var(--r);padding:22px;display:grid;gap:10px;justify-items:center;text-align:center}
+.drop.on{border-color:var(--sig);background:color-mix(in oklab,var(--sig) 7%,transparent)}
+.msg{min-height:1.4em;font-weight:500}
+.how{margin:0;padding-left:1.3em;display:grid;gap:8px;font-size:15px}
+.how li::marker{font:600 13px var(--mono);color:var(--soft)}
+.code{display:flex;gap:8px;align-items:center;background:var(--surface);border-radius:12px;padding:8px 8px 8px 12px;font:12px var(--mono);overflow-wrap:anywhere}
+.code span{flex:1}
+.empty{text-align:center;padding:56px 20px;display:grid;gap:14px;justify-items:center}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;transition:all var(--d2) var(--e-out);z-index:30;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.notice{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}.notice[hidden]{display:none}
+.note{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--r);background:var(--raise);box-shadow:var(--shadow);font-size:15px;border-left:3px solid var(--soft)}
+.note p{flex:1 1 220px;margin:0}.note.bad{border-left-color:var(--bad)}
+.note .btn{min-height:40px}.spin{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--line);border-top-color:var(--sig);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.skel{background:linear-gradient(90deg,var(--surface),color-mix(in oklab,var(--surface) 55%,var(--raise)),var(--surface));background-size:200% 100%;animation:sk 1.2s infinite;border-radius:var(--r)}
+@keyframes sk{to{background-position:-200% 0}}
+@media(max-width:960px){
+ .app{grid-template-columns:minmax(0,1fr)}
+ .rail{position:fixed;inset:auto 0 0 0;height:auto;flex-direction:row;justify-content:space-around;padding:6px 6px calc(6px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:color-mix(in oklab,var(--bg) 85%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);z-index:10;gap:0}
+ .rail .brand,.rail .sync{display:none}
+ .tab{flex-direction:column;gap:3px;font-size:11px;padding:6px 4px;min-height:52px;flex:1;justify-content:center;background:none!important;box-shadow:none!important}
+ .tab[aria-current=page]::after{right:auto;top:auto;bottom:2px;width:16px;height:3px;border-radius:3px}
+ main{padding:0 14px calc(100px + env(safe-area-inset-bottom))}
+ .topbar{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 2px 12px}
+ .topbar .brand{padding:0;font-size:20px}
+ .topbar .syncTop{margin-left:auto;font:12px var(--mono);color:var(--soft);text-align:right;background:none;border:0;padding:6px 0}
+ .cols{grid-template-columns:minmax(0,1fr)}
+ .hero{grid-template-columns:minmax(0,1fr)}
+ .tree{min-height:200px;margin:0 clamp(16px,4vw,26px) 4px}
+}
+@media(max-width:520px){.hero .big{margin:10px 0}.mini b{font-size:17px}.mini+.mini{padding-left:10px}.row{grid-template-columns:minmax(0,7.5em) minmax(0,1fr) 5.2em;gap:8px}.step{grid-template-columns:40px 40px minmax(0,1fr)}.step .amt{grid-column:3}}
+@media(prefers-reduced-motion:reduce){*,*::before{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Main">
+    <div class="brand"><svg width="32" height="32" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#101316"/><rect x="14" y="40" width="7" height="10" rx="2" fill="#e9ebe8"/><rect x="25" y="31" width="7" height="19" rx="2" fill="#e9ebe8"/><rect x="36" y="22" width="7" height="28" rx="2" fill="#e9ebe8"/><circle cx="48" cy="16" r="5" fill="#ff6a2b"/></svg>Baobab</div>
+    <button class="tab" data-view="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 15a8 8 0 0116 0"/><path d="M12 15l4-5"/><circle cx="12" cy="15" r="1.4" fill="currentColor"/><path d="M4 19h16"/></svg>Today</button>
+    <button class="tab" data-view="spending"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Spending</button>
+    <button class="tab" data-view="pockets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18M7 3h10"/></svg>Pockets</button>
+    <button class="tab" data-view="activity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Activity</button>
+    <button class="tab" data-open="data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12a8 8 0 0114-5.3M20 12a8 8 0 01-14 5.3M18 3v4h-4M6 21v-4h4"/></svg>Sync</button>
+    <div class="sync" id="syncRail"></div>
+  </nav>
+
+  <main>
+    <div class="topbar"><div class="brand"><svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#101316"/><rect x="14" y="40" width="7" height="10" rx="2" fill="#e9ebe8"/><rect x="25" y="31" width="7" height="19" rx="2" fill="#e9ebe8"/><rect x="36" y="22" width="7" height="28" rx="2" fill="#e9ebe8"/><circle cx="48" cy="16" r="5" fill="#ff6a2b"/></svg>Baobab</div><button class="syncTop" id="syncTop" data-open="data"></button></div>
+
+    <div class="notice" id="notice" hidden aria-live="polite"></div>
+    <section class="view" id="v-loading"><div class="skel" style="height:360px"></div><div class="cols"><div class="skel" style="height:260px"></div><div class="skel" style="height:260px"></div></div></section>
+
+    <section class="view" id="v-empty" hidden>
+      <div class="empty card">
+        <svg width="72" height="72" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#101316"/><rect x="14" y="40" width="7" height="10" rx="2" fill="#e9ebe8"/><rect x="25" y="31" width="7" height="19" rx="2" fill="#e9ebe8"/><rect x="36" y="22" width="7" height="28" rx="2" fill="#e9ebe8"/><circle cx="48" cy="16" r="5" fill="#ff6a2b"/></svg>
+        <h1>Add your first statement</h1>
+        <p class="soft" style="max-width:46ch" id="emptyText">In the Capitec app, email yourself a statement. Baobab finds it in Gmail and reads it for you. Or add a PDF here.</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="btn" id="checkGmail" hidden>Check Gmail now</button><button class="btn" data-open="data" id="addStmt">Add a statement</button><button class="btn ghost" id="trySample">Try with sample data</button></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-today" hidden>
+      <div class="hero">
+        <div class="hero-txt">
+          <span class="label" id="safeLabel">Safe to spend today</span>
+          <div class="big num" id="safe">R0</div>
+          <p class="sub" id="safeSub"></p>
+          <div class="minis" id="minis"></div>
+        </div>
+        <div class="tree" id="tree" role="img" aria-label="This pay cycle, day by day"></div>
+      </div>
+      <div class="card" id="movesCard" hidden><div class="card-h"><h2>Latest money moves</h2><span class="soft small" id="movesNote"></span></div><div id="moves"></div><div class="moves-foot" id="movesFoot"></div></div>
+      <div class="cols">
+        <div class="card"><div class="card-h"><h2 id="fcTitle">Until payday</h2><span class="soft small" id="fcNote"></span></div>
+          <div class="chart" id="fcChart" style="min-height:190px"></div><div id="bills" style="margin-top:10px"></div></div>
+        <div class="card"><div class="card-h"><h2 id="payTitle">Payday</h2><span class="soft small" id="payLeft"></span></div><ol class="steps" id="steps"></ol></div>
+      </div>
+      <div class="cols">
+        <div class="card"><div class="card-h"><h2>This pay cycle</h2><span class="soft small" id="cycleNote"></span></div><div id="meters"></div></div>
+        <div style="display:grid;gap:16px"><div class="card" id="weekCard"><div class="card-h"><h2>Your last 7 days</h2><span class="soft small" id="weekNote"></span></div><div id="week"></div></div>
+        <div class="card"><div class="card-h"><h2>Goals</h2><button class="link" data-open="plan">Edit plan</button></div><div id="goals"></div></div></div>
+      </div>
+      <div><div class="head" style="margin-bottom:12px"><h2>What Baobab noticed</h2><span class="soft small" id="noticeNote"></span></div><div class="nudges" id="nudges"></div></div>
+    </section>
+
+    <section class="view" id="v-spending" hidden>
+      <div class="head"><h1 id="spendTitle">Spending</h1></div>
+      <div class="chips" id="monthChips" role="group" aria-label="Month"></div>
+      <div class="cols">
+        <div class="card"><div class="card-h"><h3>Spending against salary</h3><span class="legend"><span><i style="background:var(--ink)"></i>Spent</span><span><i style="background:var(--ag);border-radius:50%"></i>Salary</span></span></div><div class="chart" id="monthsChart" style="min-height:240px"></div><p class="soft small" style="margin-top:8px">Tap a bar to open that month. Transfers between your pockets are left out.</p></div>
+        <div class="card"><div class="card-h"><h3 id="catHead">Where it went</h3><span class="soft small">against your 3-month average</span></div><div id="cats"></div></div>
+      </div>
+      <div class="cols">
+        <div class="card"><div class="card-h"><h3 id="repHead">What repeats</h3></div><div class="scroll"><table><thead><tr><th>Charge</th><th class="r">Day</th><th class="r">Monthly</th><th class="r">Yearly</th></tr></thead><tbody id="rep"></tbody></table></div></div>
+        <div class="card"><div class="card-h"><h3 id="funHead">Games, hobbies and betting</h3></div><div id="fun"></div></div>
+      </div>
+    </section>
+
+    <section class="view" id="v-pockets" hidden>
+      <div class="head"><div><h1 id="pocketTitle">Pockets</h1><p class="soft">Each pocket has one job.</p></div><button class="btn ghost" data-open="plan">Edit plan</button></div>
+      <div class="pockets" id="pocketList"></div>
+      <div class="card"><div class="card-h"><h3 id="projHead">The road ahead</h3><span class="legend" id="projLegend"></span></div><div class="chart" id="projChart" style="min-height:300px"></div>
+        <p class="soft small" style="margin-top:8px">After each payday, before interest, growth and bonuses. Wants and Yearly costs get spent, so they aren't counted.</p></div>
+    </section>
+
+    <section class="view" id="v-activity" hidden>
+      <div class="head"><h1>Activity</h1><span class="soft" id="txCount"></span></div>
+      <div class="search"><input id="q" type="search" placeholder="Search shops" aria-label="Search shops"><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
+      <div id="txList"></div>
+      <button class="btn ghost" id="txMore" hidden style="justify-self:center">Show more</button>
+    </section>
+  </main>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="grab"></div><div id="sheetBody"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script id="sample" type="application/json">[{"id":"2026-05-01|-1782|9418","date":"2026-05-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":9418},{"id":"2026-05-02|-402|9016","date":"2026-05-02","description":"Eft Debit Order (3100000003): Wow (400000001 NETC)","merchant":"wow","bankCategory":"Uncategorised","category":"Internet & phone","amount":-402,"balance":9016},{"id":"2026-05-02|-48|8968","date":"2026-05-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":8968},{"id":"2026-05-02|-338.45|8629.55","date":"2026-05-02","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-338.45,"balance":8629.55},{"id":"2026-05-03|-179|8450.55","date":"2026-05-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":8450.55},{"id":"2026-05-03|-308.69|8141.86","date":"2026-05-03","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-308.69,"balance":8141.86},{"id":"2026-05-05|-595.75|7546.11","date":"2026-05-05","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-595.75,"balance":7546.11},{"id":"2026-05-06|-91|7455.11","date":"2026-05-06","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-91,"balance":7455.11},{"id":"2026-05-06|-461|6994.11","date":"2026-05-06","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-461,"balance":6994.11},{"id":"2026-05-07|-50|6944.11","date":"2026-05-07","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-50,"balance":6944.11},{"id":"2026-05-10|-393.13|6550.98","date":"2026-05-10","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-393.13,"balance":6550.98},{"id":"2026-05-11|-59.99|6490.99","date":"2026-05-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":6490.99},{"id":"2026-05-11|-305.95|6185.04","date":"2026-05-11","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-305.95,"balance":6185.04},{"id":"2026-05-12|-351.43|5833.61","date":"2026-05-12","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-351.43,"balance":5833.61},{"id":"2026-05-12|-71.92|5761.69","date":"2026-05-12","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-71.92,"balance":5761.69},{"id":"2026-05-13|-50|5711.69","date":"2026-05-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":5711.69},{"id":"2026-05-13|-220.68|5491.01","date":"2026-05-13","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-220.68,"balance":5491.01},{"id":"2026-05-14|-59|5432.01","date":"2026-05-14","description":"Recurring Card Purchase: Amazon Prime Cape Town (Card 1234)","merchant":"amazon prime","bankCategory":"Subscriptions","category":"Subscriptions","amount":-59,"balance":5432.01},{"id":"2026-05-14|-251|5181.01","date":"2026-05-14","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":5181.01},{"id":"2026-05-15|-424.12|4756.89","date":"2026-05-15","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-424.12,"balance":4756.89},{"id":"2026-05-16|-665.29|4091.6","date":"2026-05-16","description":"Sportscene Somerset (Card 1234)","merchant":"sportscene somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-665.29,"balance":4091.6},{"id":"2026-05-16|-393.27|3698.33","date":"2026-05-16","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-393.27,"balance":3698.33},{"id":"2026-05-17|-457.8|3240.53","date":"2026-05-17","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-457.8,"balance":3240.53},{"id":"2026-05-18|-539.25|2701.28","date":"2026-05-18","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-539.25,"balance":2701.28},{"id":"2026-05-20|-399.99|2301.29","date":"2026-05-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":2301.29},{"id":"2026-05-22|-150|2151.29","date":"2026-05-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":2151.29},{"id":"2026-05-22|-373.58|1777.71","date":"2026-05-22","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-373.58,"balance":1777.71},{"id":"2026-05-23|-390.86|1386.85","date":"2026-05-23","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-390.86,"balance":1386.85},{"id":"2026-05-24|13635|15021.85","date":"2026-05-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":13635,"balance":15021.85},{"id":"2026-05-24|-331.8|14690.05","date":"2026-05-24","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-331.8,"balance":14690.05},{"id":"2026-05-25|-188.03|14502.02","date":"2026-05-25","description":"Bootleggers Somerset (Card 1234)","merchant":"bootleggers somerset","bankCategory":"Restaurants","category":"Eating out","amount":-188.03,"balance":14502.02},{"id":"2026-05-26|-69.99|14432.03","date":"2026-05-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":14432.03},{"id":"2026-05-28|-1623|12809.03","date":"2026-05-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":12809.03},{"id":"2026-05-28|-7.5|12801.53","date":"2026-05-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":12801.53},{"id":"2026-05-29|-503.4|12298.13","date":"2026-05-29","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-503.4,"balance":12298.13},{"id":"2026-05-30|-383.65|11914.48","date":"2026-05-30","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-383.65,"balance":11914.48},{"id":"2026-05-31|-402.04|11512.44","date":"2026-05-31","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-402.04,"balance":11512.44},{"id":"2026-06-01|-636.62|10875.82","date":"2026-06-01","description":"Bootleggers Somerset (Card 1234)","merchant":"bootleggers somerset","bankCategory":"Restaurants","category":"Eating out","amount":-636.62,"balance":10875.82},{"id":"2026-06-01|-156|10719.82","date":"2026-06-01","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-156,"balance":10719.82},{"id":"2026-06-01|-1782|8937.82","date":"2026-06-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":8937.82},{"id":"2026-06-01|-258.8|8679.02","date":"2026-06-01","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-258.8,"balance":8679.02},{"id":"2026-06-02|-403.93|8275.09","date":"2026-06-02","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-403.93,"balance":8275.09},{"id":"2026-06-02|-402|7873.09","date":"2026-06-02","description":"Eft Debit Order (3100000003): Wow (400000001 NETC)","merchant":"wow","bankCategory":"Uncategorised","category":"Internet & phone","amount":-402,"balance":7873.09},{"id":"2026-06-02|-48|7825.09","date":"2026-06-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":7825.09},{"id":"2026-06-02|-347.75|7477.34","date":"2026-06-02","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-347.75,"balance":7477.34},{"id":"2026-06-03|-179|7298.34","date":"2026-06-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":7298.34},{"id":"2026-06-04|-370.1|6928.24","date":"2026-06-04","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-370.1,"balance":6928.24},{"id":"2026-06-05|-378.41|6549.83","date":"2026-06-05","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-378.41,"balance":6549.83},{"id":"2026-06-08|-244.9|6304.93","date":"2026-06-08","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-244.9,"balance":6304.93},{"id":"2026-06-09|-327.83|5977.1","date":"2026-06-09","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-327.83,"balance":5977.1},{"id":"2026-06-10|-330.64|5646.46","date":"2026-06-10","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-330.64,"balance":5646.46},{"id":"2026-06-11|-59.99|5586.47","date":"2026-06-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":5586.47},{"id":"2026-06-11|-288.15|5298.32","date":"2026-06-11","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-288.15,"balance":5298.32},{"id":"2026-06-12|-251|5047.32","date":"2026-06-12","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":5047.32},{"id":"2026-06-13|-50|4997.32","date":"2026-06-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":4997.32},{"id":"2026-06-14|-59|4938.32","date":"2026-06-14","description":"Recurring Card Purchase: Amazon Prime Cape Town (Card 1234)","merchant":"amazon prime","bankCategory":"Subscriptions","category":"Subscriptions","amount":-59,"balance":4938.32},{"id":"2026-06-14|-867.65|4070.67","date":"2026-06-14","description":"Sportscene Somerset (Card 1234)","merchant":"sportscene somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-867.65,"balance":4070.67},{"id":"2026-06-17|-337.71|3732.96","date":"2026-06-17","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-337.71,"balance":3732.96},{"id":"2026-06-18|-347.29|3385.67","date":"2026-06-18","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-347.29,"balance":3385.67},{"id":"2026-06-19|-306.13|3079.54","date":"2026-06-19","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-306.13,"balance":3079.54},{"id":"2026-06-20|-399.99|2679.55","date":"2026-06-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":2679.55},{"id":"2026-06-20|-365.91|2313.64","date":"2026-06-20","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-365.91,"balance":2313.64},{"id":"2026-06-21|-91|2222.64","date":"2026-06-21","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-91,"balance":2222.64},{"id":"2026-06-21|-264.37|1958.27","date":"2026-06-21","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-264.37,"balance":1958.27},{"id":"2026-06-22|-150|1808.27","date":"2026-06-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":1808.27},{"id":"2026-06-22|-501|1307.27","date":"2026-06-22","description":"Online Purchase: Playstation Sony Psn (Card 1234)","merchant":"playstation","bankCategory":"Software/Games","category":"Games & fun","amount":-501,"balance":1307.27},{"id":"2026-06-23|-648.93|658.34","date":"2026-06-23","description":"Cotton On Somerset (Card 1234)","merchant":"cotton on somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-648.93,"balance":658.34},{"id":"2026-06-23|-329.25|329.09","date":"2026-06-23","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-329.25,"balance":329.09},{"id":"2026-06-24|13635|13964.09","date":"2026-06-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":13635,"balance":13964.09},{"id":"2026-06-24|-2500|11464.09","date":"2026-06-24","description":"Banking App Transfer to 30 Percent Wants: Transfer","merchant":"30 percent wants","bankCategory":"Transfer","category":"Pocket transfer","amount":-2500,"balance":11464.09},{"id":"2026-06-24|-1000|10464.09","date":"2026-06-24","description":"Banking App Transfer to 20 Percent Savings Account:","merchant":"20 percent savings","bankCategory":"Transfer","category":"Pocket transfer","amount":-1000,"balance":10464.09},{"id":"2026-06-24|-313.84|10150.25","date":"2026-06-24","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-313.84,"balance":10150.25},{"id":"2026-06-25|-473.57|9676.68","date":"2026-06-25","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-473.57,"balance":9676.68},{"id":"2026-06-26|-69.99|9606.69","date":"2026-06-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":9606.69},{"id":"2026-06-26|-192.08|9414.61","date":"2026-06-26","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-192.08,"balance":9414.61},{"id":"2026-06-26|-506|8908.61","date":"2026-06-26","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-506,"balance":8908.61},{"id":"2026-06-27|-251|8657.61","date":"2026-06-27","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":8657.61},{"id":"2026-06-28|-1623|7034.61","date":"2026-06-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":7034.61},{"id":"2026-06-28|-7.5|7027.11","date":"2026-06-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":7027.11},{"id":"2026-07-01|-1782|5245.11","date":"2026-07-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":5245.11},{"id":"2026-07-02|-402|4843.11","date":"2026-07-02","description":"Eft Debit Order (3100000003): Wow (400000001 NETC)","merchant":"wow","bankCategory":"Uncategorised","category":"Internet & phone","amount":-402,"balance":4843.11},{"id":"2026-07-02|-48|4795.11","date":"2026-07-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":4795.11},{"id":"2026-07-03|-179|4616.11","date":"2026-07-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":4616.11},{"id":"2026-07-03|-447.44|4168.67","date":"2026-07-03","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-447.44,"balance":4168.67},{"id":"2026-07-04|-417.42|3751.25","date":"2026-07-04","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-417.42,"balance":3751.25},{"id":"2026-07-06|-156|3595.25","date":"2026-07-06","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-156,"balance":3595.25},{"id":"2026-07-07|-251|3344.25","date":"2026-07-07","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":3344.25},{"id":"2026-07-09|-756.39|2587.86","date":"2026-07-09","description":"Sportscene Somerset (Card 1234)","merchant":"sportscene somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-756.39,"balance":2587.86},{"id":"2026-07-09|-461|2126.86","date":"2026-07-09","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-461,"balance":2126.86},{"id":"2026-07-10|-362.12|1764.74","date":"2026-07-10","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-362.12,"balance":1764.74},{"id":"2026-07-11|-59.99|1704.75","date":"2026-07-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":1704.75},{"id":"2026-07-11|-198.4|1506.35","date":"2026-07-11","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-198.4,"balance":1506.35},{"id":"2026-07-11|-105.37|1400.98","date":"2026-07-11","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-105.37,"balance":1400.98},{"id":"2026-07-12|9000|10400.98","date":"2026-07-12","description":"PayShap Payment Received: Sample Buyer","merchant":"sample buyer","bankCategory":"Other Income","category":"Other income","amount":9000,"balance":10400.98},{"id":"2026-07-12|-381.4|10019.58","date":"2026-07-12","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-381.4,"balance":10019.58},{"id":"2026-07-13|-50|9969.58","date":"2026-07-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":9969.58},{"id":"2026-07-13|-251|9718.58","date":"2026-07-13","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":9718.58},{"id":"2026-07-14|-59|9659.58","date":"2026-07-14","description":"Recurring Card Purchase: Amazon Prime Cape Town (Card 1234)","merchant":"amazon prime","bankCategory":"Subscriptions","category":"Subscriptions","amount":-59,"balance":9659.58},{"id":"2026-07-15|-281.31|9378.27","date":"2026-07-15","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-281.31,"balance":9378.27},{"id":"2026-07-16|-357.54|9020.73","date":"2026-07-16","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-357.54,"balance":9020.73},{"id":"2026-07-18|-506|8514.73","date":"2026-07-18","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-506,"balance":8514.73},{"id":"2026-07-19|-91|8423.73","date":"2026-07-19","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-91,"balance":8423.73},{"id":"2026-07-20|-399.99|8023.74","date":"2026-07-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":8023.74},{"id":"2026-07-22|-150|7873.74","date":"2026-07-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":7873.74},{"id":"2026-07-24|13635|21508.74","date":"2026-07-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":13635,"balance":21508.74},{"id":"2026-07-24|-2500|19008.74","date":"2026-07-24","description":"Banking App Transfer to 30 Percent Wants: Transfer","merchant":"30 percent wants","bankCategory":"Transfer","category":"Pocket transfer","amount":-2500,"balance":19008.74},{"id":"2026-07-24|-1000|18008.74","date":"2026-07-24","description":"Banking App Transfer to 20 Percent Savings Account:","merchant":"20 percent savings","bankCategory":"Transfer","category":"Pocket transfer","amount":-1000,"balance":18008.74},{"id":"2026-07-24|-358.95|17649.79","date":"2026-07-24","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-358.95,"balance":17649.79},{"id":"2026-07-25|-386.98|17262.81","date":"2026-07-25","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-386.98,"balance":17262.81},{"id":"2026-07-26|-69.99|17192.82","date":"2026-07-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":17192.82},{"id":"2026-07-26|-226.84|16965.98","date":"2026-07-26","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-226.84,"balance":16965.98},{"id":"2026-07-27|-545.19|16420.79","date":"2026-07-27","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-545.19,"balance":16420.79},{"id":"2026-07-28|-1623|14797.79","date":"2026-07-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":14797.79},{"id":"2026-07-28|-7.5|14790.29","date":"2026-07-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":14790.29},{"id":"2026-07-28|-401|14389.29","date":"2026-07-28","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-401,"balance":14389.29},{"id":"2026-07-28|-157.83|14231.46","date":"2026-07-28","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-157.83,"balance":14231.46},{"id":"2026-07-31|-500.09|13731.37","date":"2026-07-31","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-500.09,"balance":13731.37},{"id":"2026-08-01|-418.39|13312.98","date":"2026-08-01","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-418.39,"balance":13312.98},{"id":"2026-08-01|-1782|11530.98","date":"2026-08-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":11530.98},{"id":"2026-08-02|-443.43|11087.55","date":"2026-08-02","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-443.43,"balance":11087.55},{"id":"2026-08-02|-402|10685.55","date":"2026-08-02","description":"Eft Debit Order (3100000003): Wow (400000001 NETC)","merchant":"wow","bankCategory":"Uncategorised","category":"Internet & phone","amount":-402,"balance":10685.55},{"id":"2026-08-02|-48|10637.55","date":"2026-08-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":10637.55},{"id":"2026-08-02|-259.23|10378.32","date":"2026-08-02","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-259.23,"balance":10378.32},{"id":"2026-08-03|-293.55|10084.77","date":"2026-08-03","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-293.55,"balance":10084.77},{"id":"2026-08-03|-179|9905.77","date":"2026-08-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":9905.77},{"id":"2026-08-03|-362.82|9542.95","date":"2026-08-03","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-362.82,"balance":9542.95},{"id":"2026-08-04|-251|9291.95","date":"2026-08-04","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":9291.95},{"id":"2026-08-04|-317.64|8974.31","date":"2026-08-04","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-317.64,"balance":8974.31},{"id":"2026-08-05|-530.26|8444.05","date":"2026-08-05","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-530.26,"balance":8444.05},{"id":"2026-08-06|-479.96|7964.09","date":"2026-08-06","description":"Sportscene Somerset (Card 1234)","merchant":"sportscene somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-479.96,"balance":7964.09},{"id":"2026-08-06|-151|7813.09","date":"2026-08-06","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-151,"balance":7813.09},{"id":"2026-08-08|-237.05|7576.04","date":"2026-08-08","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-237.05,"balance":7576.04},{"id":"2026-08-09|-333.23|7242.81","date":"2026-08-09","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-333.23,"balance":7242.81},{"id":"2026-08-11|-59.99|7182.82","date":"2026-08-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":7182.82},{"id":"2026-08-11|-163.65|7019.17","date":"2026-08-11","description":"Bootleggers Somerset (Card 1234)","merchant":"bootleggers somerset","bankCategory":"Restaurants","category":"Eating out","amount":-163.65,"balance":7019.17},{"id":"2026-08-13|-50|6969.17","date":"2026-08-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":6969.17},{"id":"2026-08-13|-251|6718.17","date":"2026-08-13","description":"Online Purchase: Playstation Sony Psn (Card 1234)","merchant":"playstation","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":6718.17},{"id":"2026-08-14|-59|6659.17","date":"2026-08-14","description":"Recurring Card Purchase: Amazon Prime Cape Town (Card 1234)","merchant":"amazon prime","bankCategory":"Subscriptions","category":"Subscriptions","amount":-59,"balance":6659.17},{"id":"2026-08-17|-372.33|6286.84","date":"2026-08-17","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-372.33,"balance":6286.84},{"id":"2026-08-18|-383.91|5902.93","date":"2026-08-18","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-383.91,"balance":5902.93},{"id":"2026-08-20|-399.99|5502.94","date":"2026-08-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":5502.94},{"id":"2026-08-21|-151|5351.94","date":"2026-08-21","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-151,"balance":5351.94},{"id":"2026-08-22|-150|5201.94","date":"2026-08-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":5201.94},{"id":"2026-08-22|-50|5151.94","date":"2026-08-22","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-50,"balance":5151.94},{"id":"2026-08-22|-310.83|4841.11","date":"2026-08-22","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-310.83,"balance":4841.11},{"id":"2026-08-23|-407.64|4433.47","date":"2026-08-23","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-407.64,"balance":4433.47},{"id":"2026-08-24|13635|18068.47","date":"2026-08-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":13635,"balance":18068.47},{"id":"2026-08-24|-2500|15568.47","date":"2026-08-24","description":"Banking App Transfer to 30 Percent Wants: Transfer","merchant":"30 percent wants","bankCategory":"Transfer","category":"Pocket transfer","amount":-2500,"balance":15568.47},{"id":"2026-08-24|-1000|14568.47","date":"2026-08-24","description":"Banking App Transfer to 20 Percent Savings Account:","merchant":"20 percent savings","bankCategory":"Transfer","category":"Pocket transfer","amount":-1000,"balance":14568.47},{"id":"2026-08-24|-397.67|14170.8","date":"2026-08-24","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-397.67,"balance":14170.8},{"id":"2026-08-26|-69.99|14100.81","date":"2026-08-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":14100.81},{"id":"2026-08-26|-151|13949.81","date":"2026-08-26","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-151,"balance":13949.81},{"id":"2026-08-28|-1623|12326.81","date":"2026-08-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":12326.81},{"id":"2026-08-28|-7.5|12319.31","date":"2026-08-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":12319.31},{"id":"2026-08-29|-431.9|11887.41","date":"2026-08-29","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-431.9,"balance":11887.41},{"id":"2026-08-30|-340.69|11546.72","date":"2026-08-30","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-340.69,"balance":11546.72},{"id":"2026-08-31|-282.37|11264.35","date":"2026-08-31","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-282.37,"balance":11264.35},{"id":"2026-09-01|-156|11108.35","date":"2026-09-01","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-156,"balance":11108.35},{"id":"2026-09-01|-1782|9326.35","date":"2026-09-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":9326.35},{"id":"2026-09-01|-299.67|9026.68","date":"2026-09-01","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-299.67,"balance":9026.68},{"id":"2026-09-02|-401|8625.68","date":"2026-09-02","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-401,"balance":8625.68},{"id":"2026-09-02|-678.43|7947.25","date":"2026-09-02","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-678.43,"balance":7947.25},{"id":"2026-09-02|-48|7899.25","date":"2026-09-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":7899.25},{"id":"2026-09-02|-408.71|7490.54","date":"2026-09-02","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-408.71,"balance":7490.54},{"id":"2026-09-03|-100|7390.54","date":"2026-09-03","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-100,"balance":7390.54},{"id":"2026-09-03|-179|7211.54","date":"2026-09-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":7211.54},{"id":"2026-09-03|-409.18|6802.36","date":"2026-09-03","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-409.18,"balance":6802.36},{"id":"2026-09-09|-303.72|6498.64","date":"2026-09-09","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-303.72,"balance":6498.64},{"id":"2026-09-10|-351.04|6147.6","date":"2026-09-10","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-351.04,"balance":6147.6},{"id":"2026-09-11|-59.99|6087.61","date":"2026-09-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":6087.61},{"id":"2026-09-11|-462.12|5625.49","date":"2026-09-11","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-462.12,"balance":5625.49},{"id":"2026-09-13|-50|5575.49","date":"2026-09-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":5575.49},{"id":"2026-09-14|-59|5516.49","date":"2026-09-14","description":"Recurring Card Purchase: Amazon Prime Cape Town (Card 1234)","merchant":"amazon prime","bankCategory":"Subscriptions","category":"Subscriptions","amount":-59,"balance":5516.49},{"id":"2026-09-14|-131|5385.49","date":"2026-09-14","description":"Online Purchase: Playstation Sony Psn (Card 1234)","merchant":"playstation","bankCategory":"Software/Games","category":"Games & fun","amount":-131,"balance":5385.49},{"id":"2026-09-14|-50|5335.49","date":"2026-09-14","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-50,"balance":5335.49},{"id":"2026-09-16|-258.77|5076.72","date":"2026-09-16","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-258.77,"balance":5076.72},{"id":"2026-09-17|-412.58|4664.14","date":"2026-09-17","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-412.58,"balance":4664.14},{"id":"2026-09-19|-248.87|4415.27","date":"2026-09-19","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-248.87,"balance":4415.27},{"id":"2026-09-20|-399.99|4015.28","date":"2026-09-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":4015.28},{"id":"2026-09-20|-251|3764.28","date":"2026-09-20","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":3764.28},{"id":"2026-09-22|-150|3614.28","date":"2026-09-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":3614.28},{"id":"2026-09-23|-224.6|3389.68","date":"2026-09-23","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-224.6,"balance":3389.68},{"id":"2026-09-24|13635|17024.68","date":"2026-09-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":13635,"balance":17024.68},{"id":"2026-09-24|-361.71|16662.97","date":"2026-09-24","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-361.71,"balance":16662.97},{"id":"2026-09-25|-319.65|16343.32","date":"2026-09-25","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-319.65,"balance":16343.32},{"id":"2026-09-25|-105.91|16237.41","date":"2026-09-25","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-105.91,"balance":16237.41},{"id":"2026-09-26|-69.99|16167.42","date":"2026-09-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":16167.42},{"id":"2026-09-28|-1623|14544.42","date":"2026-09-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":14544.42},{"id":"2026-09-28|-7.5|14536.92","date":"2026-09-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":14536.92},{"id":"2026-09-29|-438.65|14098.27","date":"2026-09-29","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-438.65,"balance":14098.27},{"id":"2026-09-30|-348.56|13749.71","date":"2026-09-30","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-348.56,"balance":13749.71},{"id":"2026-10-01|-205.77|13543.94","date":"2026-10-01","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-205.77,"balance":13543.94},{"id":"2026-10-01|-1782|11761.94","date":"2026-10-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":11761.94},{"id":"2026-10-01|-307.92|11454.02","date":"2026-10-01","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-307.92,"balance":11454.02},{"id":"2026-10-02|-456.47|10997.55","date":"2026-10-02","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-456.47,"balance":10997.55},{"id":"2026-10-02|-48|10949.55","date":"2026-10-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":10949.55},{"id":"2026-10-02|-322.24|10627.31","date":"2026-10-02","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-322.24,"balance":10627.31},{"id":"2026-10-03|-179|10448.31","date":"2026-10-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":10448.31},{"id":"2026-10-03|-191.05|10257.26","date":"2026-10-03","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-191.05,"balance":10257.26},{"id":"2026-10-03|-115.79|10141.47","date":"2026-10-03","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-115.79,"balance":10141.47},{"id":"2026-10-04|-200|9941.47","date":"2026-10-04","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-200,"balance":9941.47},{"id":"2026-10-04|-626.59|9314.88","date":"2026-10-04","description":"Spur Strand (Card 1234)","merchant":"spur strand","bankCategory":"Restaurants","category":"Eating out","amount":-626.59,"balance":9314.88},{"id":"2026-10-04|-306|9008.88","date":"2026-10-04","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-306,"balance":9008.88},{"id":"2026-10-10|-294.45|8714.43","date":"2026-10-10","description":"Checkers Somerset West (Card 1234)","merchant":"checkers somerset west","bankCategory":"Groceries","category":"Groceries","amount":-294.45,"balance":8714.43},{"id":"2026-10-11|-59.99|8654.44","date":"2026-10-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":8654.44},{"id":"2026-10-11|-310.9|8343.54","date":"2026-10-11","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-310.9,"balance":8343.54},{"id":"2026-10-13|-50|8293.54","date":"2026-10-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":8293.54},{"id":"2026-10-13|-170.42|8123.12","date":"2026-10-13","description":"Bootleggers Somerset (Card 1234)","merchant":"bootleggers somerset","bankCategory":"Restaurants","category":"Eating out","amount":-170.42,"balance":8123.12},{"id":"2026-10-14|-251|7872.12","date":"2026-10-14","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-251,"balance":7872.12},{"id":"2026-10-14|-641.04|7231.08","date":"2026-10-14","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-641.04,"balance":7231.08},{"id":"2026-10-15|-200|7031.08","date":"2026-10-15","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-200,"balance":7031.08},{"id":"2026-10-16|-515.42|6515.66","date":"2026-10-16","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-515.42,"balance":6515.66},{"id":"2026-10-17|-334.1|6181.56","date":"2026-10-17","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-334.1,"balance":6181.56},{"id":"2026-10-18|-197.29|5984.27","date":"2026-10-18","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-197.29,"balance":5984.27},{"id":"2026-10-19|-587.05|5397.22","date":"2026-10-19","description":"Bootleggers Somerset (Card 1234)","merchant":"bootleggers somerset","bankCategory":"Restaurants","category":"Eating out","amount":-587.05,"balance":5397.22},{"id":"2026-10-20|-399.99|4997.23","date":"2026-10-20","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-399.99,"balance":4997.23},{"id":"2026-10-22|-150|4847.23","date":"2026-10-22","description":"Recurring Card Purchase: Wispr San Francisco (Card 1234)","merchant":"wispr","bankCategory":"Software/Games","category":"Subscriptions","amount":-150,"balance":4847.23},{"id":"2026-10-22|-739.36|4107.87","date":"2026-10-22","description":"Sportscene Somerset (Card 1234)","merchant":"sportscene somerset","bankCategory":"Clothing & Shoes","category":"Clothing","amount":-739.36,"balance":4107.87},{"id":"2026-10-24|17700|21807.87","date":"2026-10-24","description":"Payment Received: Rtc 5a1b2c3d4e Acme Fibre Networks","merchant":"payment received acme","bankCategory":"Payment Received","category":"Salary","amount":17700,"balance":21807.87},{"id":"2026-10-24|-506.82|21301.05","date":"2026-10-24","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-506.82,"balance":21301.05},{"id":"2026-10-25|-310.21|20990.84","date":"2026-10-25","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-310.21,"balance":20990.84},{"id":"2026-10-26|-69.99|20920.85","date":"2026-10-26","description":"Recurring Card Purchase: Spotify Stockholm (Card 1234)","merchant":"spotify","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-69.99,"balance":20920.85},{"id":"2026-10-26|-374.76|20546.09","date":"2026-10-26","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-374.76,"balance":20546.09},{"id":"2026-10-26|-219.54|20326.55","date":"2026-10-26","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-219.54,"balance":20326.55},{"id":"2026-10-28|-1623|18703.55","date":"2026-10-28","description":"Eft Debit Order (3100000002): Coastal Crossfit (CF_001)","merchant":"coastal crossfit","bankCategory":"Sport & Hobbies","category":"Gym","amount":-1623,"balance":18703.55},{"id":"2026-10-28|-7.5|18696.05","date":"2026-10-28","description":"Monthly Account Admin Fee","merchant":"monthly account admin","bankCategory":"Fees","category":"Bank fees","amount":-7.5,"balance":18696.05},{"id":"2026-10-29|-50|18646.05","date":"2026-10-29","description":"Online Purchase: Hollywoodbets Durban (Card 1234)","merchant":"hollywoodbets","bankCategory":"Betting/Lottery","category":"Betting","amount":-50,"balance":18646.05},{"id":"2026-10-31|-489.36|18156.69","date":"2026-10-31","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-489.36,"balance":18156.69},{"id":"2026-11-01|-379.12|17777.57","date":"2026-11-01","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-379.12,"balance":17777.57},{"id":"2026-11-01|-1782|15995.57","date":"2026-11-01","description":"Eft Debit Order (3100000001): Disc Prem (0001234567-001)","merchant":"disc prem","bankCategory":"Medical Aid","category":"Medical aid","amount":-1782,"balance":15995.57},{"id":"2026-11-01|-409.84|15585.73","date":"2026-11-01","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-409.84,"balance":15585.73},{"id":"2026-11-02|-403.67|15182.06","date":"2026-11-02","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-403.67,"balance":15182.06},{"id":"2026-11-02|-48|15134.06","date":"2026-11-02","description":"Eft Debit Order (3100000004): Afriforum (_300000001_1)","merchant":"afriforum","bankCategory":"Donations","category":"Memberships & donations","amount":-48,"balance":15134.06},{"id":"2026-11-02|-309.3|14824.76","date":"2026-11-02","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-309.3,"balance":14824.76},{"id":"2026-11-03|-564.61|14260.15","date":"2026-11-03","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-564.61,"balance":14260.15},{"id":"2026-11-03|-506|13754.15","date":"2026-11-03","description":"Banking App External PayShap Payment: Sample Friend","merchant":"sample friend","bankCategory":"Digital Payments","category":"Gifts & people","amount":-506,"balance":13754.15},{"id":"2026-11-03|-179|13575.15","date":"2026-11-03","description":"Recurring Card Purchase: Netflix Amsterdam (Card 1234)","merchant":"netflix","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-179,"balance":13575.15},{"id":"2026-11-03|-263.64|13311.51","date":"2026-11-03","description":"Online Purchase: Uber Eats Cape Town (Card 1234)","merchant":"uber eats","bankCategory":"Takeaways","category":"Eating out","amount":-263.64,"balance":13311.51},{"id":"2026-11-04|-151|13160.51","date":"2026-11-04","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-151,"balance":13160.51},{"id":"2026-11-05|-151|13009.51","date":"2026-11-05","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-151,"balance":13009.51},{"id":"2026-11-05|-269.73|12739.78","date":"2026-11-05","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-269.73,"balance":12739.78},{"id":"2026-11-06|-131|12608.78","date":"2026-11-06","description":"Online Purchase: Playstation Sony Psn (Card 1234)","merchant":"playstation","bankCategory":"Software/Games","category":"Games & fun","amount":-131,"balance":12608.78},{"id":"2026-11-09|-359.77|12249.01","date":"2026-11-09","description":"Pick n Pay Strand (Card 1234)","merchant":"pick n pay","bankCategory":"Groceries","category":"Groceries","amount":-359.77,"balance":12249.01},{"id":"2026-11-10|-419.2|11829.81","date":"2026-11-10","description":"Engen Helderberg (Card 1234)","merchant":"engen helderberg","bankCategory":"Fuel","category":"Fuel & transport","amount":-419.2,"balance":11829.81},{"id":"2026-11-11|-59.99|11769.82","date":"2026-11-11","description":"Recurring Card Purchase: Apple.com Cork (Card 1234)","merchant":"apple.com","bankCategory":"Digital Subscriptions","category":"Subscriptions","amount":-59.99,"balance":11769.82},{"id":"2026-11-11|-176.29|11593.53","date":"2026-11-11","description":"Clicks Somerset West (Card 1234)","merchant":"clicks somerset west","bankCategory":"Pharmacy","category":"Health & care","amount":-176.29,"balance":11593.53},{"id":"2026-11-12|-608.76|10984.77","date":"2026-11-12","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-608.76,"balance":10984.77},{"id":"2026-11-13|-50|10934.77","date":"2026-11-13","description":"Recurring Card Purchase: Uber One Amsterdam (Card 1234)","merchant":"uber one","bankCategory":"Subscriptions","category":"Subscriptions","amount":-50,"balance":10934.77},{"id":"2026-11-13|-401|10533.77","date":"2026-11-13","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-401,"balance":10533.77},{"id":"2026-11-13|-265.41|10268.36","date":"2026-11-13","description":"Online Purchase: Takealot Cape Town (Card 1234)","merchant":"takealot","bankCategory":"Online Store","category":"Online shopping","amount":-265.41,"balance":10268.36},{"id":"2026-11-14|-501|9767.36","date":"2026-11-14","description":"Online Purchase: Playstation Sony Psn (Card 1234)","merchant":"playstation","bankCategory":"Software/Games","category":"Games & fun","amount":-501,"balance":9767.36},{"id":"2026-11-15|-377.22|9390.14","date":"2026-11-15","description":"Woolworths Food Somerset (Card 1234)","merchant":"woolworths food somerset","bankCategory":"Groceries","category":"Groceries","amount":-377.22,"balance":9390.14},{"id":"2026-11-16|-315.91|9074.23","date":"2026-11-16","description":"Shell Somerset West (Card 1234)","merchant":"shell somerset west","bankCategory":"Fuel","category":"Fuel & transport","amount":-315.91,"balance":9074.23},{"id":"2026-11-18|-494.64|8579.59","date":"2026-11-18","description":"Hussar Grill Somerset (Card 1234)","merchant":"hussar grill somerset","bankCategory":"Restaurants","category":"Eating out","amount":-494.64,"balance":8579.59},{"id":"2026-11-19|-401|8178.59","date":"2026-11-19","description":"Online Purchase: Steam Seattle (Card 1234)","merchant":"steam","bankCategory":"Software/Games","category":"Games & fun","amount":-401,"balance":8178.59}]</script>
+<script>
+/* Baobab engine: reads a Capitec statement and works out the numbers, all on this device.
+   Mirrors backend/app/{parser,categories,insights,plan}.py so the app gives the same answers
+   with or without the server. Works in the browser (window.Baobab) and in Node (module.exports). */
+(function (root) {
+  'use strict';
+
+  /* ---------------- PDF → text (pdf.js) ---------------- */
+  async function pdfToText(pdfjs, buf, cw = 4.4) {
+    const doc = await pdfjs.getDocument({data: new Uint8Array(buf), verbosity: 0, isEvalSupported: false}).promise;
+    const out = [];
+    for (let n = 1; n <= doc.numPages; n++) {
+      const tc = await (await doc.getPage(n)).getTextContent();
+      const items = tc.items.filter((i) => i.str && i.str.trim()).map((i) => ({x: i.transform[4], y: i.transform[5], s: i.str, w: i.width}));
+      items.sort((a, b) => b.y - a.y || a.x - b.x);
+      const lines = [];
+      for (const it of items) { const l = lines.find((l) => Math.abs(l.y - it.y) < 2.5); l ? l.items.push(it) : lines.push({y: it.y, items: [it]}); }
+      lines.sort((a, b) => b.y - a.y);
+      for (const l of lines) {
+        l.items.sort((a, b) => a.x - b.x);
+        let s = '', end = 0;
+        for (const it of l.items) {
+          const col = Math.round(it.x / cw);
+          if (s.length && col <= s.length) s += it.x - end > 6 ? '  ' : ' ';
+          else s = s.padEnd(col, ' ');
+          s += it.s; end = it.x + it.w;
+        }
+        out.push(s);
+      }
+    }
+    return out.join('\n');
+  }
+
+  /* ---------------- parser ---------------- */
+  const AMOUNT = '-?\\d{1,3}(?: \\d{3})*\\.\\d{2}';
+  const ROW = /^\s*(\d{2})\/(\d{2})\/(\d{4})\s+(.*)$/;
+  const FOOTER = /Capitec Bank|Client Care|Unique Document|Includes VAT|Page \d+ of/i;
+  const CAPITEC_CATEGORIES = ('Fees|Groceries|Restaurants|Online Store|Fuel|Subscriptions|Clothing & Shoes|Software/Games|Transfer|' +
+    'Digital Payments|Other Income|Donations|Takeaways|Alcohol|Uncategorised|Sport & Hobbies|Medical Aid|Pharmacy|' +
+    'Digital Subscriptions|Movies|Interest|Personal Care|Payment Received|Account Payment Received|Other Transport|' +
+    'Other Personal & Family|Public Transport|Children & Dependants|Holiday|Betting/Lottery|Allowance|Activities|Gifts|' +
+    'Home Improvements|Furniture & Appliances|Going Out|Home Maintenance|Vehicle Maintenance|Entertainment|Electricity|' +
+    'Cellphone|Garden|Insurance|Doctors & Therapists|Education|Rent|Bond|Salary|Refunds|Cash Withdrawal|Parking|Toll|' +
+    'Vehicle Finance|Loans|Investments|Savings').split('|').sort((a, b) => b.length - a.length);
+  const KNOWN = new Set(CAPITEC_CATEGORIES);
+  const num = (s) => parseFloat(s.replace(/[ R]/g, ''));
+  const money = (s) => { if (s == null) return null; const neg = s.includes('-'); const v = num(s.replace(/-/g, '')); return neg ? -v : v; };
+  const header = (t, label) => { const m = t.match(new RegExp(label + ':\\s*(R?-?R?[\\d ]+\\.\\d{2}|\\d{2}/\\d{2}/\\d{4})')); return m ? m[1] : null; };
+  const toISO = (s) => s ? `${s.slice(6, 10)}-${s.slice(3, 5)}-${s.slice(0, 2)}` : null;
+
+  function splitText(body) {
+    const parts = body.trim().split(/\s{2,}/).filter(Boolean);
+    let desc = parts[0] || '', cat = parts.slice(1).join(' ');
+    if (!cat) for (const c of CAPITEC_CATEGORIES) if (desc.endsWith(' ' + c)) return [desc.slice(0, -c.length - 1).trim(), c];
+    return [desc, cat];
+  }
+
+  function parseText(text) {
+    if (!text.includes('Transaction History') || !/capitec|Main Account Statement/i.test(text)) throw Object.assign(new Error("This isn't a Capitec account statement."), {notStatement: true});
+    if (/Savings (Plan|Pocket)/i.test(text.slice(0, 600)) && !/Main Account/i.test(text.slice(0, 600)))
+      throw new Error('This is a savings pocket statement. Baobab needs your main account statement.');
+    const opening = money(header(text, 'Opening Balance'));
+    if (opening == null) throw new Error("Couldn't find the opening balance on page 1.");
+    const closing = money(header(text, 'Closing Balance'));
+    const lines = text.split('\n');
+    const start = lines.findIndex((l) => l.trim().startsWith('Transaction History'));
+    // Card purchases still pending sit after the history. They aren't in the balance yet, so keep them apart.
+    let stop = lines.findIndex((l, i) => i > start && /^Pending (Card )?Transactions/i.test(l.trim()));
+    if (stop < 0) stop = lines.length;
+    const pending = [];
+    for (const line of lines.slice(stop + 1)) {
+      const m = line.match(/^\s*(\d{2})\/(\d{2})\/(\d{4})\s+(.*?)\s{2,}.*?(-?)R\s?([\d ]+\.\d{2})\s*$/);
+      if (m) pending.push({date: `${m[3]}-${m[2]}-${m[1]}`, description: m[4].trim(), amount: (m[5] ? -1 : 1) * num(m[6])});
+    }
+    const rows = [];
+    const amtRe = new RegExp('(?<![\\d.])(' + AMOUNT + ')(?=\\s|$)', 'g');
+    for (const line of lines.slice(start + 1, stop)) {
+      const m = line.match(ROW);
+      if (m) {
+        const [, dd, mm, yyyy, rest] = m;
+        const amounts = [...rest.matchAll(amtRe)];
+        if (!amounts.length) continue;
+        const bal = amounts[amounts.length - 1];
+        const body = rest.slice(0, amounts.length > 1 ? amounts[0].index : bal.index);
+        const [desc, cat] = splitText(body);
+        rows.push({date: `${yyyy}-${mm}-${dd}`, desc, cat, nums: amounts.slice(0, -1).map((a) => num(a[1])), bal: num(bal[1])});
+      } else if (rows.length && line.trim() && line.startsWith(' ') && !FOOTER.test(line)) {
+        if (/^(Date |Description)/.test(line.trim())) continue;
+        const indent = line.length - line.trimStart().length;
+        const r = rows[rows.length - 1];
+        if (indent > 40) r.cat = (r.cat + ' ' + line.trim()).trim();
+        else { const [d, c] = splitText(line); r.desc += ' ' + d; if (c) r.cat = (r.cat + ' ' + c).trim(); }
+      }
+    }
+    for (const r of rows) {
+      const w = r.desc.split(/\s+/);
+      for (const k of [1, 2]) { const head = w.slice(-k).join(' '); if (r.cat && KNOWN.has(`${head} ${r.cat}`)) { r.cat = `${head} ${r.cat}`; r.desc = w.slice(0, -k).join(' '); break; } }
+    }
+    let prev = opening;
+    const txns = rows.map((r) => {
+      const change = +(r.bal - prev).toFixed(2); let amount, fee;
+      if (r.nums.length >= 2 && Math.abs(r.nums[0] + r.nums[1] - change) < 0.011) [amount, fee] = r.nums;
+      else if (r.nums.length === 1 && Math.abs(r.nums[0] - change) < 0.011) [amount, fee] = [r.nums[0], 0];
+      else [amount, fee] = [change, 0];
+      prev = r.bal;
+      return {date: r.date, description: r.desc.split(/\s+/).join(' '), bankCategory: r.cat.split(/\s+/).join(' '), amount, fee, balance: r.bal};
+    });
+    const last = txns[txns.length - 1];
+    if (closing != null && last && Math.abs(last.balance - closing) > 0.011)
+      throw new Error(`Balances don't add up: last row R${last.balance.toFixed(2)}, statement says R${closing.toFixed(2)}.`);
+    return {opening, closing, from: toISO(header(text, 'From Date')), to: toISO(header(text, 'To Date')), txns, pending};
+  }
+
+  /* ---------------- categories ---------------- */
+  const GROUPS = {'Salary': 'income', 'Other income': 'income', 'Pocket transfer': 'internal', 'Medical aid': 'bills', 'Gym': 'bills',
+    'Subscriptions': 'bills', 'Memberships & donations': 'bills', 'Internet & phone': 'bills', 'Bank fees': 'bills',
+    'Groceries': 'everyday', 'Fuel & transport': 'everyday', 'Health & care': 'everyday', 'Home': 'everyday',
+    'Eating out': 'wants', 'Games & fun': 'wants', 'Betting': 'wants', 'Clothing': 'wants', 'Online shopping': 'wants',
+    'Gifts & people': 'wants', 'Other': 'wants'};
+  const CATEGORIES = Object.keys(GROUPS);
+  const BRANDS = {'steam': 'Steam', 'playstation': 'PlayStation', 'psn': 'PlayStation', 'ster kinekor': 'Ster-Kinekor',
+    'chess.com': 'Chess.com', 'hollywoodbets': 'Hollywoodbets', 'yesplay': 'YesPlay', 'oculus': 'Oculus',
+    'apple.com': 'Apple (Claude, iCloud+, apps)', 'uber eats': 'Uber Eats', 'netflix': 'Netflix', 'spotify': 'Spotify',
+    'takealot': 'Takealot', 'disc prem': 'Discovery medical aid', 'ceyboxx': 'Ceyboxx CrossFit', 'wispr': 'Wispr',
+    'microsoft': 'Microsoft', 'afriforum': 'AfriForum', 'amazon prime': 'Amazon Prime', 'lego': 'Lego', 'wow (': 'Wow internet'};
+  const PREFIXES = /^(recurring card purchase|online purchase|eft debit order|debit order|banking app( external)?( payshap)?( immediate)?( payment| transfer)?( to)?|payshap payment( received)?|card purchase|pos purchase|international online purchase|apple pay purchase)\s*(\(\d+\))?\s*:?\s*/i;
+  const NOISE = /\(card \d+\)|\([^)]*\d{4,}[^)]*\)|\bdigital\b$|\b(?=\w*\d)\w{6,}\b|\d{6,}|\brtc\b|[_*#]+/gi;
+
+  function merchantOf(description) {
+    const low = description.toLowerCase();
+    if (!low.includes('fee')) {
+      if (low.includes('recurring') && low.includes('uber') && !low.includes('eats')) return 'uber one';
+      for (const k of Object.keys(BRANDS)) if (low.includes(k)) return k.replace(/[ (]+$/, '');
+    }
+    let d = description.trim().replace(PREFIXES, '').replace(NOISE, ' ').toLowerCase().replace(/[^a-z0-9&.' ]+/g, ' ');
+    return d.split(/\s+/).filter(Boolean).slice(0, 3).join(' ') || low.slice(0, 30);
+  }
+  const JUNK = new Set('cape town somerset wes west london dublin amsterdam stockholm cork seattle san francisco milnerton parktown durban johannesburg sandton stellenbosch paarl strand gb'.split(' '));
+  function labelOf(m) {
+    if (m === 'uber one') return 'Uber One';
+    for (const [k, v] of Object.entries(BRANDS)) if (k.replace(/[ (]+$/, '') === m) return v;
+    const w = m.split(' '), keep = w.filter((x) => !JUNK.has(x) && !/\d/.test(x));
+    return (keep.length ? keep : w.slice(0, 1)).join(' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  const RULES = [
+    ['Pocket transfer', ['percent', 'transfer to savings', 'transfer from savings', 'savings plan'], []],
+    ['Medical aid', ['disc prem', 'discovery health', 'momentum health', 'bonitas', 'medshield'], ['medical aid']],
+    ['Gym', ['ceyboxx', 'crossfit', 'virgin active', 'planet fitness'], []],
+    ['Betting', ['hollywoodbets', 'yesplay', 'betway', 'supabets', 'lottostar', 'sportingbet'], ['betting']],
+    ['Games & fun', ['steam', 'playstation', 'psn', 'oculus', 'meta quest', 'xbox', 'nintendo', 'epic games', 'chess.com', 'riot', 'ster-kinekor', 'nu metro'],
+      ['software/games', 'movies', 'sport & hobbies', 'entertainment', 'activities', 'going out']],
+    ['Subscriptions', ['netflix', 'spotify', 'apple.com', 'icloud', 'wispr', 'amazon prime', 'microsoft', 'youtube', 'disney', 'showmax', 'dstv', 'uber one', 'claude', 'openai', 'google one'],
+      ['subscriptions', 'digital subscriptions']],
+    ['Internet & phone', ['wow', 'vodacom', 'mtn', 'telkom', 'cell c', 'rain ', 'afrihost', 'webafrica'], ['cellphone', 'internet']],
+    ['Memberships & donations', ['afriforum', 'solidariteit'], ['donations']],
+    ['Bank fees', ['notification fee', 'admin fee', 'monthly fee', 'service fee'], ['fees']],
+    ['Eating out', ['uber eats', 'mr d', 'kfc', 'mcdonald', 'nando', 'spur', 'steers', 'debonairs', 'wimpy', 'ocean basket', 'vida e', 'caffe', ' cafe', 'coffee', 'restaurant', 'pizza', 'burger', 'sushi', 'grill'], ['restaurants', 'takeaways', 'alcohol']],
+    ['Groceries', ['checkers', 'pick n pay', 'woolworths food', 'spar', 'shoprite'], ['groceries']],
+    ['Fuel & transport', ['engen', 'shell', 'bp ', 'sasol', 'caltex', 'total ', 'uber trip', 'bolt', 'gautrain'], ['fuel', 'transport', 'parking', 'toll', 'vehicle']],
+    ['Health & care', ['clicks', 'dis-chem', 'dischem', 'pharmacy'], ['pharmacy', 'personal care', 'doctors']],
+    ['Home', ['builders', 'leroy merlin', 'game stores', 'mr price home'], ['home', 'furniture', 'garden', 'electricity']],
+    ['Clothing', ['h&m', 'cotton on', 'mr price', 'superbalist', 'sportscene', 'totalsports'], ['clothing']],
+    ['Online shopping', ['takealot', 'amazon', 'temu', 'shein', 'bash.com'], ['online store']],
+    ['Gifts & people', ['payshap', 'immediate payment', 'send cash'], ['digital payments', 'gifts', 'children', 'personal & family']],
+  ];
+
+  function categorise(description, bankCategory, amount, overrides = {}, employer = '') {
+    const merchant = merchantOf(description);
+    if (overrides[merchant]) return overrides[merchant];
+    const d = description.toLowerCase(), c = (bankCategory || '').toLowerCase();
+    if (employer && d.includes(employer.toLowerCase()) && amount > 0) return 'Salary';
+    if (d.includes('percent') || (c.includes('transfer') && d.includes('transfer to') && !d.includes('payshap'))) return 'Pocket transfer';
+    if (amount > 0) return c.includes('salary') || c.includes('account payment received') || d.includes('salary') ? 'Salary' : 'Other income';
+    if (d.includes('recurring') && d.includes('uber') && !d.includes('eats') && Math.abs(amount) <= 80) return 'Subscriptions';
+    for (const [cat, words] of RULES) if (words.some((w) => d.includes(w))) return cat;
+    for (const [cat, , bank] of RULES) if (bank.some((w) => c.includes(w))) return cat;
+    return 'Other';
+  }
+  const groupOf = (cat) => GROUPS[cat] || 'wants';
+
+  /* ---------------- plan ---------------- */
+  /* A blank plan: no personal numbers. Your own plan lives on your device (or your server). */
+  const POCKETS = [
+    {key: 'emergency', name: 'Emergency', where: 'Capitec', kind: 'save', balance: 0, target: 25000, monthly: 0, day: null, job: 'Car breaks, medical gap, lost income. Never for things you want.'},
+    {key: 'allangray', name: 'Allan Gray tax-free', where: 'Allan Gray', kind: 'invest', balance: 0, target: null, monthly: 0, day: 26, debit_order: true, job: "Long-term money you won't touch for 5+ years. Growth is never taxed."},
+    {key: 'goals', name: 'Goals', where: 'Capitec', kind: 'save', balance: 0, target: 0, monthly: 0, day: null, goal: 'Next big purchase', job: 'One big purchase at a time.'},
+    {key: 'yearly', name: 'Yearly costs', where: 'Capitec', kind: 'spend', balance: 0, target: 0, monthly: 0, day: null, job: 'Christmas, birthdays, car service, licence, tyres.'},
+    {key: 'wants', name: 'Wants', where: 'Capitec', kind: 'spend', balance: 0, target: null, monthly: 0, day: null, job: 'Eating out, games, clothes, friends. Empty means stop.'},
+  ];
+  const DEFAULT_PLAN = {take_home: 0, payday: 25, employer: '', budget: {bills: 0, everyday: 0, wants: 0, savings: 0}, pockets: POCKETS, moves: [], skip_monthly: {}, done_moves: []};
+  const SAMPLE_PLAN = {take_home: 17000, payday: 24, employer: '', budget: {bills: 4300, everyday: 4000, wants: 4300, savings: 4400},
+    pockets: POCKETS.map((p) => ({...p, ...({emergency: {balance: 21500, target: 25000}, allangray: {balance: 6000, monthly: 1600},
+      goals: {balance: 3200, target: 18000, monthly: 2000, goal: 'New laptop'}, yearly: {balance: 2400, target: 9600, monthly: 800}, wants: {monthly: 4300}})[p.key]})),
+    moves: [], skip_monthly: {}, done_moves: []};
+  const clonePlan = (p) => JSON.parse(JSON.stringify(p));
+
+  const D = (s) => new Date(s + 'T12:00:00Z');
+  const iso = (d) => d.toISOString().slice(0, 10);
+  const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  function paydayOn(y, m, day) { const d = new Date(Date.UTC(y, m, Math.min(day, daysIn(y, m)), 12)); while (d.getUTCDay() === 0 || d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1); return d; }
+  function nextPayday(t, day) { const p = paydayOn(t.getUTCFullYear(), t.getUTCMonth(), day); return p >= t ? p : paydayOn(t.getUTCFullYear(), t.getUTCMonth() + 1, day); }
+  function addMonths(d, n) { const m = d.getUTCMonth() + n, y = d.getUTCFullYear() + Math.floor(m / 12), mm = ((m % 12) + 12) % 12; return new Date(Date.UTC(y, mm, Math.min(d.getUTCDate(), daysIn(y, mm)), 12)); }
+
+  function project(plan, today, n = 14) {
+    const saving = plan.pockets.filter((p) => p.kind === 'save' || p.kind === 'invest');
+    const bal = Object.fromEntries(saving.map((p) => [p.key, +p.balance]));
+    const pending = plan.moves.filter((m) => !plan.done_moves.includes(m.id)).map((m) => ({...m}));
+    const first = nextPayday(today, plan.payday), out = [];
+    for (let i = 0; i < n; i++) {
+      const pay = addMonths(first, i), ym = iso(pay).slice(0, 7), end = iso(addMonths(pay, 1));
+      for (const m of pending) if (!m._done && m.date < end) { if (m.from in bal) bal[m.from] -= m.amount; if (m.to in bal) bal[m.to] += m.amount; m._done = 1; }
+      const skip = (plan.skip_monthly || {})[ym] || [];
+      for (const p of saving) if (!skip.includes(p.key)) bal[p.key] += p.monthly || 0;
+      const row = {month: ym}; let total = 0;
+      for (const [k, v] of Object.entries(bal)) { row[k] = Math.round(v); total += v; }
+      row.total = Math.round(total); out.push(row);
+    }
+    return out;
+  }
+
+  function checklist(plan, today, ticks = new Set()) {
+    const pay = nextPayday(today, plan.payday), ym = iso(pay).slice(0, 7), skip = (plan.skip_monthly || {})[ym] || [], horizon = iso(addMonths(pay, 1));
+    const steps = plan.moves.filter((m) => m.date <= horizon && (m.date >= iso(today) || !plan.done_moves.includes(m.id)))
+      .map((m) => ({id: m.id, date: m.date, from: m.from, to: m.to, amount: m.amount, label: m.note, auto: false, done: plan.done_moves.includes(m.id)}));
+    for (const p of plan.pockets) {
+      if (!p.monthly || skip.includes(p.key)) continue;
+      const on = p.day && p.day !== plan.payday ? new Date(Date.UTC(pay.getUTCFullYear(), pay.getUTCMonth(), Math.min(p.day, daysIn(pay.getUTCFullYear(), pay.getUTCMonth())), 12)) : pay;
+      const id = `monthly-${p.key}-${ym}`;
+      steps.push({id, date: iso(on), from: 'main', to: p.key, amount: p.monthly, label: p.debit_order ? 'Allan Gray debit order' : `Transfer to ${p.name}`, auto: true, done: ticks.has(id)});
+    }
+    steps.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
+    const left = plan.take_home - steps.filter((s) => s.from === 'main' && (s.auto || s.date <= iso(pay))).reduce((a, s) => a + s.amount, 0);
+    return {pay, days: Math.round((pay - today) / 864e5), steps, left};
+  }
+
+  /* ---------------- insights ---------------- */
+  const sum = (a, f = (x) => x) => a.reduce((s, x) => s + f(x), 0);
+  const median = (a) => { const s = [...a].sort((x, y) => x - y), n = s.length; return n ? (n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2) : 0; };
+
+  function monthsOf(tx) {
+    const by = new Map();
+    for (const t of tx) {
+      const g = groupOf(t.category); if (g === 'internal') continue;
+      const k = t.date.slice(0, 7); if (!by.has(k)) by.set(k, {month: k, income: 0, salary: 0, spent: 0, bills: 0, everyday: 0, wants: 0});
+      const m = by.get(k);
+      if (g === 'income') { m.income += t.amount; if (t.category === 'Salary') m.salary += t.amount; }
+      else { m.spent -= t.amount; m[g] -= t.amount; }
+    }
+    return [...by.values()].sort((a, b) => a.month.localeCompare(b.month)).map((m) => Object.fromEntries(Object.entries(m).map(([k, v]) => [k, typeof v === 'number' ? Math.round(v) : v])));
+  }
+  const fullMonths = (tx) => [...new Set(tx.map((t) => t.date.slice(0, 7)))].sort().slice(0, -1);
+
+  function categoryAverages(tx, n = 3) {
+    const fm = fullMonths(tx).slice(-n); if (!fm.length) return {months: [], rows: []};
+    const tot = new Map(), mer = new Map();
+    for (const t of tx) {
+      if (!fm.includes(t.date.slice(0, 7))) continue;
+      const g = groupOf(t.category); if (g === 'income' || g === 'internal') continue;
+      tot.set(t.category, (tot.get(t.category) || 0) - t.amount);
+      if (!mer.has(t.category)) mer.set(t.category, new Map());
+      const mm = mer.get(t.category); mm.set(t.merchant, (mm.get(t.merchant) || 0) - t.amount);
+    }
+    const rows = [...tot].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).map(([c, v]) => ({
+      category: c, group: groupOf(c), avg: Math.round(v / fm.length),
+      top: [...mer.get(c)].filter(([, s]) => s > 0).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([m, s]) => ({merchant: m, label: labelOf(m), avg: Math.round(s / fm.length)})),
+    }));
+    return {months: fm, rows};
+  }
+
+  function recurring(tx, asOf) {
+    const rows = tx.filter((t) => t.amount < 0 && !['internal', 'income'].includes(groupOf(t.category)) && !['Bank fees', 'Eating out', 'Groceries', 'Fuel & transport'].includes(t.category));
+    if (!rows.length) return [];
+    asOf = asOf || D(rows[rows.length - 1].date);
+    const by = new Map(); for (const r of rows) { if (!by.has(r.merchant)) by.set(r.merchant, []); by.get(r.merchant).push(r); }
+    const subCats = ['Subscriptions', 'Medical aid', 'Gym', 'Internet & phone', 'Memberships & donations'];
+    const out = [];
+    for (const [merchant, rs] of by) {
+      const ma = new Map(); for (const r of rs) ma.set(r.date.slice(0, 7), (ma.get(r.date.slice(0, 7)) || 0) - r.amount);
+      if (ma.size < 3) continue;
+      const amts = [...ma.values()], typical = median(amts);
+      const steady = amts.filter((a) => Math.abs(a - typical) <= Math.max(0.15 * typical, 5)).length / amts.length;
+      const d0 = rs[0].description.toLowerCase();
+      const isSub = subCats.includes(rs[0].category) || d0.includes('recurring') || d0.includes('debit order');
+      if (!isSub && (steady < 0.8 || rs.length / ma.size > 1.2 || ma.size < 4)) continue;
+      const last = rs.reduce((a, r) => (r.date > a ? r.date : a), '');
+      out.push({merchant, label: labelOf(merchant), category: rs[rs.length - 1].category, monthly: Math.round(typical * 100) / 100,
+        yearly: Math.round(typical * 12), day: Math.round(median(rs.map((r) => +r.date.slice(8)))), last,
+        status: (asOf - D(last)) / 864e5 > 40 ? 'stopped' : 'active'});
+    }
+    return out.sort((a, b) => (a.status !== b.status ? (a.status === 'active' ? -1 : 1) : b.monthly - a.monthly));
+  }
+
+  function funSpend(tx, n = 6) {
+    const fm = fullMonths(tx).slice(-n); if (!fm.length) return {months: [], avg: 0, merchants: []};
+    const tot = new Map();
+    for (const t of tx) if (fm.includes(t.date.slice(0, 7)) && ['Games & fun', 'Betting'].includes(t.category) && t.amount < 0) tot.set(t.merchant, (tot.get(t.merchant) || 0) - t.amount);
+    return {months: fm, avg: Math.round(sum([...tot.values()]) / fm.length),
+      merchants: [...tot].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([m, v]) => ({merchant: m, label: labelOf(m), avg: Math.round(v / fm.length)}))};
+  }
+
+  function budgetStatus(tx, plan, month) {
+    const m = monthsOf(tx).find((r) => r.month === month) || {};
+    return ['bills', 'everyday', 'wants'].map((g) => ({group: g, label: g[0].toUpperCase() + g.slice(1), budget: plan.budget[g], spent: Math.round(m[g] || 0)}));
+  }
+
+  /* Plain-language nudges: what changed, what's off plan, what to do. */
+  function nudges(tx, plan, today) {
+    const out = [], R = (v) => 'R' + Math.round(v).toLocaleString('en-US');
+    const ms = monthsOf(tx), fm = fullMonths(tx).slice(-3), last3 = ms.filter((m) => fm.includes(m.month));
+    if (last3.length) {
+      const avg = (k) => sum(last3, (m) => m[k]) / last3.length;
+      const wants = avg('wants');
+      if (plan.budget.wants && wants > plan.budget.wants) out.push({tone: 'warn', title: `Wants runs ${R(wants - plan.budget.wants)} over plan`, body: `You averaged ${R(wants)} a month on wants over the last ${last3.length} months. The plan is ${R(plan.budget.wants)}.`});
+      const over = last3.filter((m) => m.salary && m.spent > m.salary).length;
+      if (over) out.push({tone: 'warn', title: `Spending beat salary in ${over} of ${last3.length} months`, body: 'The gap came out of savings or one-off money. The payday transfers stop that from happening quietly.'});
+    }
+    const cats = categoryAverages(tx).rows.filter((r) => r.group === 'wants');
+    if (cats[0]) out.push({tone: 'info', title: `${cats[0].category} is your biggest want: ${R(cats[0].avg)} a month`, body: cats[0].top.slice(0, 3).map((t) => `${t.label} ${R(t.avg)}`).join(', ')});
+    const fun = funSpend(tx);
+    if (fun.avg > 300) out.push({tone: 'info', title: `Games, hobbies and betting: ${R(fun.avg * 12)} a year`, body: `About ${R(fun.avg)} a month, led by ${fun.merchants.slice(0, 2).map((m) => m.label).join(' and ')}.`});
+    const rec = recurring(tx).filter((r) => r.status === 'active');
+    const small = rec.filter((r) => r.monthly < 100 && r.category === 'Subscriptions');
+    if (small.length) out.push({tone: 'info', title: `${small.length} small subscriptions add up to ${R(sum(small, (r) => r.yearly))} a year`, body: small.map((r) => `${r.label} ${R(r.monthly)}`).join(', ') + '. Keep the ones you use every week.'});
+    const g = plan.pockets.find((p) => p.key === 'goals');
+    if (g && g.target) {
+      const p = project(plan, today, 60), hit = p.find((r) => r.goals >= g.target);
+      out.push({tone: 'good', title: hit ? `${g.goal || 'Goal'}: covered by ${monthName(hit.month)}` : `${g.goal || 'Goal'}: more than 5 years away`, body: `Goals gets ${R(g.monthly)} a month toward ${R(g.target)}. Half of any bonus brings it forward.`});
+    }
+    const e = plan.pockets.find((p) => p.key === 'emergency');
+    if (e && e.target && e.balance > e.target * 1.1) out.push({tone: 'info', title: `Emergency holds ${R(e.balance - e.target)} more than it needs`, body: `Its target is ${R(e.target)}. The planned moves put the extra to work in Goals and Allan Gray.`});
+    else if (e && e.target && e.balance >= e.target) out.push({tone: 'good', title: 'Emergency fund is full', body: `${R(e.balance)} set aside against a ${R(e.target)} target. It needs no monthly top-up.`});
+    return out;
+  }
+
+  // Alerts from the newest money moves: a payment far above your usual at that shop, and a balance heading below zero.
+  function liveAlerts(tx, liveOpen, fc, today) {
+    const out = [], R = (v) => 'R' + Math.round(v).toLocaleString('en-US'), recent = iso(new Date(today.getTime() - 3 * 864e5));
+    for (const l of liveOpen) {
+      if (l.amount >= 0 || l.date < recent) continue;
+      const past = tx.filter((t) => t.amount < 0 && t.merchant === l.merchant).map((t) => -t.amount).sort((a, b) => a - b);
+      if (past.length < 3) continue;
+      const med = past[Math.floor(past.length / 2)];
+      if (-l.amount > Math.max(2 * med, med + 150)) out.push({tone: 'warn', title: `${R(-l.amount)} at ${labelOf(l.merchant)} is ${(-l.amount / med).toFixed(1)}× your usual`, body: `You normally spend about ${R(med)} there (${past.length} visits on your statements). If this wasn't you, call Capitec on 0860 10 20 43.`});
+    }
+    if (fc && fc.low && fc.low.bal < 0) out.push({tone: 'warn', title: `Main account could go below zero on ${fc.low.date.slice(8)} ${MONTHS[+fc.low.date.slice(5, 7) - 1].slice(0, 3)}`, body: `At your usual pace and with the debit orders still to come, it reaches ${R(fc.low.bal).replace('R-', '-R')} before payday. Move money from Wants or slow down for a few days.`});
+    return out;
+  }
+  // Where the money went this pay cycle, by shop.
+  function topShops(all, from, to, n = 5) {
+    const by = new Map();
+    for (const t of all) if (t.date >= from && t.date < to && t.amount < 0 && ['everyday', 'wants'].includes(groupOf(t.category))) {
+      const v = by.get(t.merchant) || {merchant: t.merchant, label: labelOf(t.merchant), category: t.category, total: 0, count: 0}; v.total -= t.amount; v.count++; by.set(t.merchant, v);
+    }
+    return [...by.values()].sort((a, b) => b.total - a.total).slice(0, n);
+  }
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const monthName = (ym) => MONTHS[+ym.slice(5, 7) - 1] + ' ' + ym.slice(0, 4);
+
+  /* ---------------- one call: statement → app data ---------------- */
+  function toTransactions(stmt, overrides = {}, employer = '') {
+    const out = stmt.txns.map((t) => {
+      const total = +(t.amount + t.fee).toFixed(2);
+      return {id: [t.date, total, t.balance].join('|'), date: t.date, description: t.description, merchant: merchantOf(t.description),
+        bankCategory: t.bankCategory, category: categorise(t.description, t.bankCategory, t.amount, overrides, employer), amount: total, balance: t.balance};
+    });
+    // No employer set: a payer who pays you R3,000+ in at least two different months is your salary.
+    if (!employer) {
+      const months = new Map();
+      for (const t of out) if (t.amount >= 3000 && t.category === 'Other income') { if (!months.has(t.merchant)) months.set(t.merchant, new Set()); months.get(t.merchant).add(t.date.slice(0, 7)); }
+      for (const t of out) if (t.category === 'Other income' && t.amount >= 3000 && (months.get(t.merchant)?.size || 0) >= 2 && !overrides[t.merchant]) t.category = 'Salary';
+    }
+    return out;
+  }
+  function merge(existing, incoming) {
+    const seen = new Set(existing.map((t) => t.id)); let added = 0;
+    const out = existing.slice();
+    for (const t of incoming) if (!seen.has(t.id)) { out.push(t); seen.add(t.id); added++; }
+    out.sort((a, b) => a.date.localeCompare(b.date));
+    return {tx: out, added};
+  }
+
+
+  /* ---------------- v2: pay cycles, live entries, safe-to-spend, forecast ---------------- */
+  // The current pay cycle runs from the last payday up to (not including) the next one.
+  function cycle(plan, today) {
+    let next = nextPayday(today, plan.payday), start;
+    if (iso(next) === iso(today)) { start = today; next = paydayOn(today.getUTCFullYear(), today.getUTCMonth() + 1, plan.payday); }
+    else { start = paydayOn(today.getUTCFullYear(), today.getUTCMonth(), plan.payday); if (start > today) start = paydayOn(today.getUTCFullYear(), today.getUTCMonth() - 1, plan.payday); }
+    return {start: iso(start), end: iso(next), days: Math.max(0, Math.round((next - today) / 864e5)), length: Math.round((next - start) / 864e5),
+      planStarted: !plan.start || iso(today) >= plan.start};
+  }
+
+  // "R1 234,50", "R 89.99", "ZAR 1,234.50", 250 -> 1234.5, 89.99, 1234.5, 250
+  function amountOf(v) {
+    if (typeof v === 'number') return Math.abs(v);
+    let x = String(v || '').replace(/[^\d.,]/g, '');
+    if (/,\d{2}$/.test(x)) x = x.replace(/[.\s]/g, '').replace(',', '.'); else x = x.replace(/,/g, '');
+    return Math.abs(parseFloat(x));
+  }
+  // Read a bank notification. Capitec writes e.g. "Purchase -R612.00 from MAIN ACCOUNT; Ref BEX VERGELEGEN Cape Town ZA;
+  // Avail R2 870.11; 20-Nov." The shop is the Ref, "from MAIN ACCOUNT" is your own account, Avail is your balance after.
+  // Returns null for anything without an amount (OTPs, logins, promotions).
+  function readNotification(title, body) {
+    const t = (String(title || '') + ' ' + String(body || '')).replace(/\s+/g, ' ').trim();
+    if (/\b(OTP|one[- ]time pin|log ?in|sign(ed)? in|password|verification code)\b/i.test(t)) return null;
+    const NUM = '(-?\\d+(?:[ ,\\u00a0]\\d{3})*(?:[.,]\\d{2})?)(?!\\d)';
+    const av = t.match(new RegExp('\\b(?:avail(?:able)?|bal(?:ance)?)\\b[^R\\d;]{0,14}R\\s?' + NUM, 'i'));
+    const core = av ? t.replace(av[0], ' ') : t;
+    const m = core.match(new RegExp('([+-]?)\\s?R\\s?' + NUM.replace('(-?', '(')));
+    if (!m) return null;
+    const amount = amountOf(m[2]);
+    const direction = m[1] === '-' ? 'out' : m[1] === '+' ? 'in'
+      : /money in|received|deposit|credited|paid (you|into)|payment from|salary|refund|reversal/i.test(core) ? 'in' : 'out';
+    const OWN = /^(main|savings?|save|my|your)\b|\baccount$|pocket/i;
+    let shop = (core.match(/\bRef(?:erence)?[:.]?\s+([^;]+?)\s*(?=;|$)/i) || [])[1] || '';
+    if (!shop) for (const w of ['at', 'to', 'from', 'by']) {
+      const x = core.match(new RegExp('\\b' + w + '\\s+(.+?)(?=\\s+(?:on|for|using|with|ref|from|to|into)\\b|[.,;]|$)', 'i'));
+      if (x && !OWN.test(x[1].trim())) { shop = x[1]; break; }
+    }
+    const own = !shop && /transfer/i.test(core) && core.match(/\bto\s+([^;.,]+?)\s*(?=[;.,]|$)/i);
+    if (own) shop = 'Transfer to ' + own[1].toLowerCase();
+    shop = shop.replace(/\(.*?\)/g, '').replace(/\s+[A-Z]{2}$/, '').trim().slice(0, 80) || String(title || '').trim() || 'Capitec';
+    return {amount, direction, merchant: shop, avail: av ? (av[1].startsWith('-') ? -1 : 1) * amountOf(av[1]) : null};
+  }
+
+  // Live entries (Apple Pay taps, notifications) become provisional transactions until a statement covers them.
+  // The shop is re-read from the original notification, and the category is learnt from your statement history.
+  function liveToTx(live, overrides = {}, history = []) {
+    const known = new Map();
+    for (const t of history) if (t.amount < 0 && t.category && t.category !== 'Other') {
+      const k = merchantOf(t.description || ''); known.set(k, t.category); known.set(k.split(' ').slice(0, 2).join(' '), t.category);
+    }
+    return live.map((l) => {
+      const n = l.raw ? readNotification('', l.raw) : null;
+      const amount = (l.direction === 'in' ? 1 : -1) * Math.abs(+l.amount), d = (l.date || '').slice(0, 10);
+      const desc = String((n && n.merchant !== 'Capitec' && n.merchant) || l.merchant || 'Card purchase'), merchant = merchantOf(desc);
+      let category = categorise(desc, '', amount, overrides);
+      if (category === 'Other' && !overrides[merchant]) category = known.get(merchant) || known.get(merchant.split(' ').slice(0, 2).join(' ')) || category;
+      return {id: 'live:' + l.id, liveId: l.id, date: d, description: desc, merchant, bankCategory: '', category, amount, balance: null,
+        live: true, source: l.source || 'live', received: l.received || '', avail: n && n.avail != null ? n.avail : null};
+    });
+  }
+  // A live entry is covered by the statement when the same amount appears 0-4 days later.
+  function reconcile(tx, live) {
+    const lastStmt = tx.length ? tx[tx.length - 1].date : '';
+    const used = new Set(), matched = [], open = [];
+    for (const l of live) {
+      const hit = tx.findIndex((t, i) => !used.has(i) && Math.abs(t.amount - l.amount) < 0.011 && t.date >= l.date && (D(t.date) - D(l.date)) / 864e5 <= 4);
+      if (hit >= 0) { used.add(hit); matched.push(l); }
+      else if (!lastStmt || l.date >= lastStmt) open.push(l);
+      else matched.push(l); // older than the statement and never matched: the statement is the truth
+    }
+    return {open, matched};
+  }
+  const allTx = (tx, liveOpen) => [...tx, ...liveOpen].sort((a, b) => a.date.localeCompare(b.date));
+
+  function spentBetween(tx, from, to) {
+    const out = {bills: 0, everyday: 0, wants: 0};
+    for (const t of tx) if (t.date >= from && t.date < to) { const g = groupOf(t.category); if (g in out) out[g] -= t.amount; }
+    for (const k in out) out[k] = Math.round(out[k]);
+    return out;
+  }
+
+  // Next date each active repeating charge is due, inside [from, to).
+  function upcoming(tx, from, to) {
+    const out = [], f = D(from), tEnd = D(to);
+    for (const r of recurring(tx)) {
+      if (r.status !== 'active') continue;
+      for (let k = 0; k < 2; k++) {
+        const base = new Date(Date.UTC(f.getUTCFullYear(), f.getUTCMonth() + k, 1, 12));
+        const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), Math.min(r.day, daysIn(base.getUTCFullYear(), base.getUTCMonth())), 12));
+        if (d >= f && d < tEnd && !tx.some((t) => t.merchant === r.merchant && t.date.slice(0, 7) === iso(d).slice(0, 7))) { out.push({date: iso(d), label: r.label, amount: r.monthly, category: r.category}); break; }
+      }
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  // How much you can spend per day until payday and stay on plan (Everyday + Wants budgets for this cycle).
+  function safeToSpend(txAll, plan, today) {
+    const c = cycle(plan, today), spent = spentBetween(txAll, c.start, c.end);
+    const budget = (plan.budget.everyday || 0) + (plan.budget.wants || 0);
+    const left = budget - spent.everyday - spent.wants;
+    const days = Math.max(1, c.days);
+    return {cycle: c, spent, budget, left: Math.round(left), perDay: Math.max(0, Math.floor(left / days)), days, over: left < 0};
+  }
+
+  // Main account balance from today to payday: known bills on their dates plus your usual daily spending.
+  function forecast(tx, liveOpen, plan, today) {
+    const stmt = tx.filter((t) => t.balance != null), last = stmt[stmt.length - 1];
+    if (!last) return null;
+    const c = cycle(plan, today);
+    // Capitec's own "Avail" figure in the newest notification beats statement + live arithmetic.
+    let k = -1; liveOpen.forEach((l, i) => { if (l.avail != null) k = i; });
+    let bal = k >= 0 ? liveOpen[k].avail + liveOpen.slice(k + 1).reduce((a, l) => a + l.amount, 0) : last.balance + liveOpen.reduce((a, l) => a + l.amount, 0);
+    const start = Math.round(bal * 100) / 100, bankAsOf = k >= 0 ? liveOpen[k].received || liveOpen[k].date : null;
+    const fm = fullMonths(tx).slice(-3), ms = monthsOf(tx).filter((m) => fm.includes(m.month));
+    const daily = ms.length ? ms.reduce((a, m) => a + m.everyday + m.wants, 0) / ms.reduce((a, m) => a + daysIn(+m.month.slice(0, 4), +m.month.slice(5) - 1), 0) : 0;
+    const from = iso(today) > last.date ? iso(today) : last.date;
+    const bills = upcoming(tx, from, c.end), pts = [{date: from, bal: Math.round(bal)}];
+    for (let d = D(from); iso(d) < c.end;) {
+      d = new Date(d.getTime() + 864e5); const ds = iso(d);
+      bal -= daily; for (const b of bills) if (b.date === ds) bal -= b.amount;
+      pts.push({date: ds, bal: Math.round(bal)});
+    }
+    const low = pts.reduce((a, p) => (p.bal < a.bal ? p : a), pts[0]);
+    return {points: pts, low, end: pts[pts.length - 1], daily: Math.round(daily), bills, start, asOf: last.date, bankAsOf};
+  }
+
+  // Repeating charges that first appeared in the last 75 days.
+  function newCharges(tx) {
+    const last = tx.length ? D(tx[tx.length - 1].date) : null; if (!last) return [];
+    return recurring(tx).filter((r) => {
+      if (r.status !== 'active') return false;
+      const first = tx.find((t) => t.merchant === r.merchant);
+      return first && (last - D(first.date)) / 864e5 <= 75;
+    });
+  }
+
+  // When each goal is reached, from the projection.
+  function goalDates(plan, today) {
+    const p = project(plan, today, 72);
+    return plan.pockets.filter((x) => x.kind !== 'spend' && x.target).map((x) => {
+      const hit = x.balance >= x.target ? {month: iso(today).slice(0, 7)} : p.find((r) => r[x.key] >= x.target);
+      return {key: x.key, name: x.name, goal: x.goal || '', target: x.target, balance: x.balance, month: hit ? hit.month : null, done: x.balance >= x.target};
+    });
+  }
+
+  function weekSummary(txAll, today) {
+    const end = iso(new Date(today.getTime() + 864e5)), start = iso(new Date(today.getTime() - 6 * 864e5));
+    const wk = txAll.filter((t) => t.date >= start && t.date < end && ['bills', 'everyday', 'wants'].includes(groupOf(t.category)));
+    const by = new Map(); for (const t of wk) by.set(t.merchant, (by.get(t.merchant) || 0) - t.amount);
+    return {start, end, spent: Math.round(wk.reduce((a, t) => a - t.amount, 0)), count: wk.length,
+      top: [...by].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m, v]) => ({label: labelOf(m), amount: Math.round(v)}))};
+  }
+
+  const api = {liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+    nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
+    toTransactions, merge, monthName, MONTHS, iso, D,
+    cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
+  if (typeof module === 'object' && module.exports) module.exports = api; else root.Baobab = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+{
+const B = window.Baobab, $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const R = (n, d = 0) => (n < 0 ? '−R' : 'R') + Math.abs(n).toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const fmtDay = (s) => { const d = B.D(s); return `${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+const fmtDow = (s) => { const d = B.D(s); return `${DAY[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]}`; };
+const longMonth = (ym) => B.MONTHS[+ym.slice(5) - 1];
+const COL = {emergency: 'var(--em)', allangray: 'var(--ag)', goals: 'var(--go)'};
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const todayISO = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10); };
+const today = () => B.D(todayISO());
+const ago = (iso) => { const m = Math.round((Date.now() - new Date(iso)) / 6e4); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+const toast = (t) => { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2800); };
+
+/* ---------- storage: your Google account (cloud) or this browser (device) ---------- */
+// The stand-alone app (its own address, no Google bar) reaches your Google Sheet through the live script with a
+// private key. The first visit comes from the link in the Google version: #u=<live address>&k=<key>.
+const RKEY = 'baobab:remote', GAS = !!(window.google && google.script && google.script.run);
+const REMOTE = GAS ? null : (() => { try {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('k') && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(h.get('u') || '')) { localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); history.replaceState(null, '', location.pathname + '#today'); }
+  return JSON.parse(localStorage.getItem(RKEY) || 'null'); } catch { return null; } })();
+const CLOUD = GAS || !!REMOTE;
+const gs = GAS ? (fn, ...a) => new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error(e && e.message || String(e))))[fn](...a))
+  : async (fn, ...a) => {
+    let r; try { r = await fetch(REMOTE.u, {method: 'POST', body: JSON.stringify({key: REMOTE.k, api: fn, args: a})}); } catch { throw new Error("You're offline, or Google can't be reached right now."); }
+    const j = await r.json().catch(() => ({ok: false, error: 'Google sent an unexpected answer. Try again in a minute.'}));
+    if (!j.ok) throw new Error(j.error || 'Something went wrong.');
+    return j.result;
+  };
+const KEY = 'baobab:v2';
+const local = {get() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } },
+  set(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); return true; } catch { return false; } }};
+const Store = CLOUD ? {
+  load: () => gs('api_load'),
+  saveState: (p) => gs('api_saveState', p),
+  pending: () => gs('api_pendingStatements'),
+  importStatement: (p) => gs('api_importStatement', p),
+  skip: (id, thread, name, reason, quiet) => gs('api_skipStatement', id, thread, name, reason, !!quiet),
+  retry: (id) => gs('api_retryStatement', id),
+  dismiss: (id) => gs('api_dismissFailed', id),
+  deleteLive: (ids) => gs('api_deleteLive', ids),
+  liveInfo: () => gs('api_liveInfo'),
+} : {
+  async load() { const d = local.get(); return {tx: d.tx || [], live: d.live || [], state: d.state || {}, me: '', pending: 0}; },
+  async saveState(p) { const d = local.get(); d.state = {...(d.state || {}), ...p}; if (!local.set(d)) throw new Error("This browser won't keep data."); },
+  async pending() { return []; },
+  async importStatement(p) { const d = local.get(); const {tx, added} = B.merge(d.tx || [], p.tx); d.tx = tx; d.live = (d.live || []).filter((l) => !(p.liveIds || []).includes(l.id)); local.set(d); return {added, duplicates: p.tx.length - added}; },
+  async skip() {}, async retry() {}, async dismiss() {}, async deleteLive(ids) { const d = local.get(); d.live = (d.live || []).filter((l) => !ids.includes(l.id)); local.set(d); },
+  async liveInfo() { return null; },
+};
+
+const S = {tx: [], live: [], plan: B.clonePlan(B.DEFAULT_PLAN), overrides: {}, ticks: [], view: 'loading', month: null, drawn: false, sample: false, meta: {}, failed: [], busy: false, busyName: '', loadError: ''};
+let saveTimer;
+function persist(keys = ['plan', 'overrides', 'ticks']) {
+  if (S.sample) return local.set({...local.get(), state: {plan: S.plan, overrides: S.overrides, ticks: S.ticks, sample: true}});
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => Store.saveState(Object.fromEntries(keys.map((k) => [k, S[k]]))).catch((e) => toast(e.message)), 250);
+}
+
+/* ---------- derived data ---------- */
+function derive() {
+  const t = today();
+  const tx = S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x));
+  const liveTx = B.liveToTx(S.live, S.overrides, tx), rc = B.reconcile(tx, liveTx), all = B.allTx(tx, rc.open);
+  return {t, tx, all, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
+    cl: B.checklist(S.plan, t, new Set(S.ticks)), proj: B.project(S.plan, t, 14), safe: B.safeToSpend(all, S.plan, t),
+    fc: B.forecast(tx, rc.open, S.plan, t), stored: S.plan.pockets.filter((p) => p.kind !== 'spend').reduce((a, p) => a + +p.balance, 0)};
+}
+
+/* ---------- import (PDF read here; statements in Gmail found automatically) ---------- */
+let pdfReady;
+function loadPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  const base = window.BAOBAB_PDFJS || 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const add = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => no(new Error("Couldn't load the PDF reader. Check your connection.")); document.head.append(s); });
+  return pdfReady ||= add(base + 'pdf.worker.min.js').then(() => add(base + 'pdf.min.js')).then(() => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.js'; return window.pdfjsLib; });
+}
+const b64 = (s) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u.buffer; };
+async function readStatement(buf, name) {
+  const text = /\.txt$/i.test(name) ? new TextDecoder().decode(buf) : await B.pdfToText(await loadPdfJs(), buf);
+  return B.parseText(text);
+}
+async function addStatement(st, mail = {}) {
+  if (S.sample) { S.sample = false; S.tx = []; S.live = []; S.plan = B.clonePlan(B.DEFAULT_PLAN); local.set({}); }
+  const fresh = B.toTransactions(st, S.overrides, S.plan.employer);
+  const covered = B.reconcile(fresh, B.liveToTx(S.live, S.overrides)).matched.map((l) => l.liveId);
+  const r = await Store.importStatement({tx: fresh, liveIds: covered, messageId: mail.messageId, threadId: mail.threadId, name: mail.name, from: st.from, to: st.to});
+  S.tx = B.merge(S.tx, fresh).tx; S.live = S.live.filter((l) => !covered.includes(l.id));
+  return {...r, from: st.from, to: st.to};
+}
+async function importFile(file) {
+  const msg = $('#msg'); if (msg) msg.textContent = `Reading ${file.name}…`;
+  try {
+    const r = await addStatement(await readStatement(await file.arrayBuffer(), file.name));
+    if (msg) msg.textContent = `Added ${r.added} new rows, ${fmtDay(r.from)} to ${fmtDay(r.to)}.`;
+    S.meta.lastImport = new Date().toISOString(); after();
+  } catch (e) { if (msg) msg.textContent = e.message || String(e); }
+}
+async function autoImport(force) {
+  if (!CLOUD || S.busy || (!S.meta.pending && !force)) return;
+  S.busy = true; renderNotice(); setSync('Checking Gmail for statements…');
+  let added = 0, found = 0;
+  try {
+    // One statement per call keeps each download small; stop after a few so a stuck email can't loop.
+    for (let round = 0; round < 6; round++) {
+      const p = (await Store.pending())[0]; if (!p) break;
+      found++; S.busyName = p.name; renderNotice();
+      try {
+        if (p.tooBig) throw new Error('The PDF is over 5 MB. In the Capitec app, email a shorter date range.');
+        const r = await addStatement(await readStatement(b64(p.base64), p.name), p); added += r.added; S.failed = S.failed.filter((f) => f.messageId !== p.messageId);
+        S.lastStatement = {name: p.name, from: r.from, to: r.to, added: r.added, at: new Date().toISOString()};
+      } catch (e) {
+        const reason = e.message || String(e);
+        // Some other PDF that matched the search (a slip, an invoice): set it aside quietly.
+        if (e.notStatement || (!/capitecbank/i.test(p.from || '') && /invalid pdf|password/i.test(reason))) { await Store.skip(p.messageId, p.threadId, p.name, reason, true).catch(() => {}); found--; continue; }
+        await Store.skip(p.messageId, p.threadId, p.name, reason).catch(() => {});
+        S.failed = [...S.failed.filter((f) => f.messageId !== p.messageId), {messageId: p.messageId, threadId: p.threadId, name: p.name, date: p.date, reason}];
+      }
+    }
+    S.meta.pending = 0;
+    if (added) toast(`Added ${added} transactions from your statement in Gmail`);
+    else if (found && !S.failed.length) toast('Statement read. Nothing new since the last one.');
+    else if (force && !found) toast(`No new statement in Gmail yet. Send it to ${S.meta.me || 'your Gmail'}.`);
+  } catch (e) { toast(e.message); }
+  S.busy = false; S.busyName = ''; renderNotice(); renderSync(); after();
+}
+function renderNotice() {
+  const el = $('#notice'), cg = $('#checkGmail'); if (cg) cg.hidden = !CLOUD || S.sample;
+  const items = [];
+  if (S.loadError) items.push(`<div class="note bad"><p>${esc(S.loadError)}</p><button class="btn ghost" data-reload>Try again</button></div>`);
+  if (S.busy) items.push(`<div class="note"><span class="spin" aria-hidden="true"></span><p>Reading ${S.busyName ? esc(S.busyName) : 'your statement'} from Gmail…</p></div>`);
+  for (const f of S.failed || []) items.push(`<div class="note bad"><p><b>Couldn't read ${esc(f.name)}</b>${f.date ? ' from ' + esc(fmtDay(f.date.slice(0, 10))) : ''}. ${esc(f.reason)}</p><button class="btn ghost" data-retry="${esc(f.messageId)}">Try again</button><button class="btn ghost" data-dismiss="${esc(f.messageId)}">Hide</button></div>`);
+  el.innerHTML = items.join(''); el.hidden = !items.length;
+  if (S.view === 'empty' && $('#emptyText')) $('#emptyText').textContent = S.busy ? 'Found a statement in Gmail. Reading it now, this takes a few seconds…' : `In the Capitec app, open your main account, tap Email statement and send it to ${S.meta.me || 'your Gmail'}. Baobab picks it up from Gmail by itself. Or add a PDF here.`;
+}
+function after() { if (S.view === 'empty' || S.view === 'loading') go('today'); else render(); }
+
+/* ---------- navigation ---------- */
+function go(view) {
+  // Switching screens: a short cross-fade where the browser supports view transitions; instant otherwise.
+  if (document.startViewTransition && !reduce && S.view !== view && !['loading'].includes(S.view)) return void document.startViewTransition(() => show(view));
+  show(view);
+}
+function show(view) {
+  if (!S.tx.length && !S.live.length) view = 'empty';
+  const first = S.view === 'loading' && view !== 'empty';
+  S.view = view;
+  for (const v of $$('.view')) v.hidden = v.id !== 'v-' + view;
+  for (const t of $$('.tab[data-view]')) { if (t.dataset.view === view) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); }
+  if (!['empty', 'loading'].includes(view) && location.hash !== '#' + view) try { history.replaceState(null, '', '#' + view); } catch {}
+  render(); renderNotice(); window.scrollTo({top: 0});
+  if (first && !reduce) { const v = $('#v-' + view); v.classList.add('enter'); setTimeout(() => v.classList.remove('enter'), 1400); }
+}
+
+/* ---------- today ---------- */
+function countUp(el, to, fmt = R) {
+  if (reduce || el.dataset.v == to) { el.innerHTML = fmt(to); el.dataset.v = to; return; }
+  const from = +el.dataset.v || 0, t0 = performance.now(), dur = 900; el.dataset.v = to;
+  const step = (n) => { const k = Math.min(1, (n - t0) / dur), e = 1 - (1 - k) ** 3; el.innerHTML = fmt(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+function drawTree(d) {
+  // The pay cycle as a runway: one tick per day from last payday to the next. Past days show what everyday
+  // and wants spending left behind; days ahead show the allowance still on the table; today is the signal.
+  const s = d.safe, c = s.cycle, n = Math.max(1, c.length), x0 = 14, x1 = 406, base = 196, top = 46;
+  const t0 = B.D(c.start), tIso = todayISO();
+  const byDay = new Map();
+  for (const t of d.all) if (t.date >= c.start && t.date < c.end && t.amount < 0) {
+    const g = B.groupOf(t.category); if (g !== 'everyday' && g !== 'wants') continue;
+    const v = byDay.get(t.date) || {everyday: 0, wants: 0}; v[g] -= t.amount; byDay.set(t.date, v);
+  }
+  const days = Array.from({length: n}, (_, i) => new Date(+t0 + i * 864e5).toISOString().slice(0, 10));
+  const plan = s.budget / n, maxDay = Math.max(0, ...[...byDay.values()].map((v) => v.everyday + v.wants));
+  const cap = Math.max(plan * 3.2, s.perDay * 1.4, Math.min(maxDay, plan * 5 || maxDay), 1), h = (v) => Math.min(base - top, (v / cap) * (base - top));
+  const step = (x1 - x0) / n, bw = Math.max(2, Math.min(9, step * 0.56));
+  let bars = '', todayX = null;
+  days.forEach((day, i) => {
+    const cx = x0 + step * (i + 0.5), x = (cx - bw / 2).toFixed(1), delay = `style="animation-delay:${(i * 14)}ms"`;
+    if (day < tIso) {
+      const v = byDay.get(day) || {everyday: 0, wants: 0}, he = h(v.everyday), hw = Math.min(h(v.everyday + v.wants), base - top) - he;
+      if (he + hw < 1) bars += `<rect x="${x}" y="${base - 1.5}" width="${bw}" height="1.5" rx="1" fill="#ffffff2e"/>`;
+      else bars += `<g class="tick-bar" ${delay}><rect x="${x}" y="${(base - he).toFixed(1)}" width="${bw}" height="${he.toFixed(1)}" rx="1.5" fill="#e9ebe8" opacity=".86"/>${hw > 0.5 ? `<rect x="${x}" y="${(base - he - hw - (he > 0.5 ? 1.5 : 0)).toFixed(1)}" width="${bw}" height="${hw.toFixed(1)}" rx="1.5" fill="var(--go)"/>` : ''}</g>`;
+      if (v.everyday + v.wants > cap) bars += `<path d="M${cx - 3} ${top - 2}l3 -5 3 5z" fill="#e9ebe8"/>`;
+    } else {
+      if (day === tIso) todayX = cx;
+      const hp = h(s.over ? 0 : s.perDay);
+      bars += hp > 1 ? `<rect x="${x}" y="${(base - hp).toFixed(1)}" width="${bw}" height="${hp.toFixed(1)}" rx="1.5" fill="none" stroke="#ffffff38" stroke-dasharray="2 2"/>` : `<rect x="${x}" y="${base - 1.5}" width="${bw}" height="1.5" rx="1" fill="#ffffff2e"/>`;
+    }
+  });
+  const py = base - h(plan), weeks = days.map((day, i) => (i && B.D(day).getUTCDay() === 1 ? `<line x1="${x0 + step * i}" x2="${x0 + step * i}" y1="${base + 4}" y2="${base + 9}" stroke="#ffffff30"/>` : '')).join('');
+  const tx = todayX == null ? x1 : todayX, anchor = tx > 330 ? 'end' : tx < 90 ? 'start' : 'middle';
+  $('#tree').innerHTML = `<svg viewBox="0 0 420 236" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <text x="${x0}" y="16" class="hi">THIS PAY CYCLE</text>
+    <g transform="translate(${x1},16)"><rect x="-168" y="-8" width="8" height="8" rx="1.5" fill="#e9ebe8" opacity=".86"/><text x="-156" y="0">everyday</text><rect x="-92" y="-8" width="8" height="8" rx="1.5" fill="var(--go)"/><text x="-80" y="0" text-anchor="start">wants</text><line x1="-36" x2="-24" y1="-4" y2="-4" stroke="#ffffff70" stroke-dasharray="3 2"/><text x="0" y="0" text-anchor="end">plan</text></g>
+    <line x1="${x0}" x2="${x1}" y1="${base + .5}" y2="${base + .5}" stroke="#ffffff26"/>${weeks}
+    ${plan > 0 ? `<line x1="${x0}" x2="${x1}" y1="${py}" y2="${py}" stroke="#ffffff55" stroke-dasharray="3 3"/>` : ''}
+    ${bars}
+    ${todayX != null ? `<g class="cursor"><line x1="${tx}" x2="${tx}" y1="${top - 8}" y2="${base + 10}" stroke="var(--sig)" stroke-width="1.5"/><circle cx="${tx}" cy="${base + .5}" r="3.5" fill="var(--sig)"/></g>
+      <text x="${tx}" y="${top - 14}" text-anchor="${anchor}" class="sg">TODAY · ${c.days === 1 ? '1 DAY' : c.days + ' DAYS'} TO PAYDAY</text>` : ''}
+    <text x="${x0}" y="${base + 26}">${fmtDay(c.start).toUpperCase()}</text>
+    <text x="${x1}" y="${base + 26}" text-anchor="end" class="hi">PAYDAY ${fmtDay(c.end).toUpperCase()}</text>
+    ${plan > 0 ? `<text x="${x0}" y="${py - 6}" class="halo">${R(plan)}/day plan</text>` : ''}
+  </svg>`;
+  $('#tree').setAttribute('aria-label', `This pay cycle, ${fmtDay(c.start)} to payday ${fmtDay(c.end)}: ${R(s.spent.everyday + s.spent.wants)} spent on everyday and wants so far, ${c.days} days to go.`);
+}
+function renderWeek(d) {
+  // This week against a normal week (median of the 8 before it), and where it went.
+  const w = B.weekSummary(d.all, d.t), prev = Array.from({length: 8}, (_, i) => B.weekSummary(d.all, new Date(d.t.getTime() - (i + 1) * 7 * 864e5)).spent).filter((v) => v > 0).sort((a, b) => a - b);
+  const norm = prev.length ? prev[Math.floor(prev.length / 2)] : 0, max = Math.max(w.spent, norm, 1), diff = w.spent - norm;
+  $('#weekNote').textContent = `${fmtDay(w.start)} to today`;
+  $('#week').innerHTML = `<div class="wk"><div class="wk-row"><span>This week</span><div class="track"><div class="fill" style="width:${w.spent / max * 100}%;background:var(--ink)"></div></div><b class="num">${R(w.spent)}</b></div>
+    <div class="wk-row"><span>A usual week</span><div class="track"><div class="fill" style="width:${norm / max * 100}%;background:color-mix(in oklab,var(--ink) 35%,transparent)"></div></div><b class="num soft">${R(norm)}</b></div></div>
+    <p class="small" style="margin:12px 0 4px">${!norm ? 'Not enough history yet to compare.' : Math.abs(diff) < norm * 0.1 ? 'About normal.' : diff > 0 ? `<b style="color:var(--bad)">${R(diff)} more</b> than usual.` : `<b style="color:var(--good)">${R(-diff)} less</b> than usual.`} ${w.count} payments.</p>
+    ${w.top.map((x) => `<div class="bill"><span class="d">top</span><span>${esc(x.label)}</span><span class="num" style="font-weight:600">${R(x.amount)}</span></div>`).join('')}`;
+}
+function renderMoves(d) {
+  // What changed since the last statement: every live payment with where and what, then what it did to your money.
+  const mv = d.liveOpen.slice().sort((a, b) => String(b.received || b.date).localeCompare(String(a.received || a.date)));
+  $('#movesCard').hidden = !mv.length; if (!mv.length) return;
+  const when = (t) => { if (!t.received) return fmtDay(t.date); const r = new Date(t.received), hm = r.toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false});
+    return (t.date === todayISO() ? 'Today' : fmtDow(t.date)) + ' ' + hm; };
+  const last = d.tx.length ? d.tx[d.tx.length - 1].date : null;
+  $('#movesNote').textContent = last ? `since your statement to ${fmtDay(last)}` : 'from your Capitec notifications';
+  $('#moves').innerHTML = mv.slice(0, 6).map((t) => { const label = B.labelOf(t.merchant);
+    return `<button class="tx" data-tx="${esc(t.id)}"><span class="ic" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(when(t))} · ${esc(t.category)}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`; }).join('')
+    + (mv.length > 6 ? `<button class="link" data-view="activity" style="margin-top:6px">See all ${mv.length}</button>` : '');
+  const out = mv.filter((t) => t.amount < 0).reduce((a, t) => a - t.amount, 0), inn = mv.filter((t) => t.amount > 0).reduce((a, t) => a + t.amount, 0);
+  const facts = [`<span><small>Moved</small><b class="num">${out ? '−' + R(out, 2) : 'R0'}${inn ? ` · +${R(inn, 2)}` : ''}</b></span>`];
+  if (d.fc && d.fc.bankAsOf) facts.push(`<span><small>Balance per Capitec</small><b class="num">${R(d.fc.start, 2)}</b></span>`);
+  const c = d.safe.cycle;
+  if (S.plan.take_home && c.planStarted && !d.safe.over) {
+    const before = B.safeToSpend(B.allTx(d.tx, []), S.plan, d.t).perDay;
+    if (before !== d.safe.perDay) facts.push(`<span><small>Safe to spend a day</small><b class="num">${R(d.safe.perDay)} <s class="soft">${R(before)}</s></b></span>`);
+  }
+  $('#movesFoot').innerHTML = facts.join('');
+}
+function renderToday(d) {
+  const s = d.safe, c = s.cycle, payDate = fmtDow(c.end);
+  if (!S.plan.take_home) {
+    $('#safeLabel').textContent = 'Saved in your pockets'; countUp($('#safe'), Math.round(d.stored));
+    $('#safeSub').innerHTML = 'Set up your plan to see what is safe to spend each day. <button class="link" style="color:var(--bandink)" data-open="plan">Set up plan</button>';
+  } else if (!c.planStarted) {
+    $('#safeLabel').textContent = 'Your plan starts on payday'; countUp($('#safe'), (S.plan.budget.everyday + S.plan.budget.wants) / Math.max(1, B.cycle(S.plan, B.D(S.plan.start)).length), (v) => R(v) + '<small>a day</small>');
+    $('#safeSub').innerHTML = `From <b>${fmtDow(S.plan.start)}</b> you'll have ${R(S.plan.budget.everyday + S.plan.budget.wants)} for everyday and wants each pay cycle.`;
+  } else if (s.over) {
+    $('#safeLabel').textContent = 'Over budget this pay cycle'; countUp($('#safe'), -s.left);
+    $('#safeSub').innerHTML = `Everyday and wants have used ${R(s.spent.everyday + s.spent.wants)} of ${R(s.budget)}. Payday on <b>${payDate}</b> starts a fresh cycle.`;
+  } else {
+    $('#safeLabel').textContent = 'Safe to spend today'; countUp($('#safe'), s.perDay, (v) => R(v) + '<small>a day</small>');
+    $('#safeSub').innerHTML = `<b>${R(s.left)}</b> left for everyday and wants until payday on <b>${payDate}</b>.`;
+  }
+  const bal = d.fc ? d.fc.start : null;
+  $('#minis').innerHTML = `<div class="mini"><span>Saved</span><b class="num">${R(d.stored)}</b><span>in ${S.plan.pockets.filter((p) => p.kind !== 'spend' && p.balance > 0).length} pockets</span></div>
+    <div class="mini"><span>Main account</span><b class="num">${bal == null ? '—' : R(bal)}</b><span>${d.fc && d.fc.bankAsOf ? 'per Capitec ' + (String(d.fc.bankAsOf).length > 10 ? new Date(d.fc.bankAsOf).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false}) : fmtDay(d.fc.bankAsOf)) : d.liveOpen.length ? `incl. ${d.liveOpen.length} live` : d.fc ? fmtDay(d.fc.asOf) : ''}</span></div>
+    <div class="mini"><span>Payday</span><b>${c.days <= 0 ? 'Today' : c.days === 1 ? 'Tomorrow' : c.days + ' days'}</b><span>${payDate}</span></div>`;
+  drawTree(d);
+  renderMoves(d);
+  renderWeek(d);
+  // until payday
+  if (d.fc) {
+    $('#fcTitle').textContent = `${R(d.fc.end.bal)} on payday`;
+    $('#fcNote').textContent = `about ${R(d.fc.daily)} a day`;
+    drawForecast(d.fc);
+    $('#bills').innerHTML = d.fc.bills.length ? `<p class="small soft" style="margin-bottom:4px">Still to come before payday</p>` + d.fc.bills.map((b) => `<div class="bill"><span class="d">${fmtDay(b.date)}</span><span>${esc(b.label)}</span><span class="num" style="font-weight:600">${R(b.amount, b.amount % 1 ? 2 : 0)}</span></div>`).join('')
+      : '<p class="small soft">No more debit orders or subscriptions before payday.</p>';
+  }
+  // payday moves
+  const todo = d.cl.steps.filter((x) => !x.done).length;
+  $('#payTitle').textContent = `Payday, ${DAY[d.cl.pay.getUTCDay()]} ${d.cl.pay.getUTCDate()} ${MON[d.cl.pay.getUTCMonth()]}`;
+  $('#payLeft').textContent = !d.cl.steps.length ? '' : todo ? `${todo} to do` : 'All done';
+  const pn = (k) => (k === 'main' ? 'Main account' : (S.plan.pockets.find((p) => p.key === k) || {name: k}).name);
+  $('#steps').innerHTML = d.cl.steps.map((x) => `<li class="step ${x.done ? 'done' : ''}" data-id="${esc(x.id)}"><div class="when">${B.D(x.date).getUTCDate()}<small>${MON[B.D(x.date).getUTCMonth()]}</small></div>
+    <button class="tick" aria-pressed="${x.done}" aria-label="Mark done: ${esc(x.label)}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></button>
+    <div class="what"><b>${esc(x.label)}</b><span>${esc(pn(x.from))} → ${esc(pn(x.to))}${x.auto ? ' · monthly' : ''}</span></div><div class="amt num">${R(x.amount)}</div></li>`).join('') || '<li class="soft">No moves yet. Add how much goes into each pocket in your plan.</li>';
+  // cycle meters with pace marker
+  const k = c.length ? Math.min(1, (c.length - c.days) / c.length) : 0;
+  $('#cycleNote').textContent = c.planStarted ? `${fmtDay(c.start)} to ${fmtDay(c.end)}` : `${fmtDay(c.start)} to ${fmtDay(c.end)}, before your plan starts`;
+  $('#meters').innerHTML = ['bills', 'everyday', 'wants'].map((g) => {
+    const b = S.plan.budget[g] || 0, v = s.spent[g], o = b && v > b, ahead = b && v > b * k + 50 && !o;
+    return `<div class="meter ${o ? 'over' : ''}"><div class="meter-top"><span>${g[0].toUpperCase() + g.slice(1)}</span><span class="num"><b>${R(v)}</b>${b ? ` <span class="soft">of ${R(b)}</span>` : ''}${o ? ` <span class="tag bad">${R(v - b)} over</span>` : ahead ? ' <span class="tag">ahead of pace</span>' : ''}</span></div>
+      ${b ? `<div class="track"><div class="fill" style="width:${Math.min(100, v / b * 100)}%"></div><div class="pace" style="left:${k * 100}%" title="Where you'd be on an even pace"></div></div>` : ''}</div>`;
+  }).join('') + '<p class="soft small" style="margin-top:8px">The thin line shows where an even pace would put you today.</p>'
+    + ((ts) => ts.length ? `<h3 style="margin:18px 0 4px">Top places this cycle</h3>` + ts.map((x) => `<div class="bill"><span class="d">${x.count}×</span><span>${esc(x.label)} <span class="soft small">${esc(x.category)}</span></span><span class="num" style="font-weight:600">${R(x.total)}</span></div>`).join('') : '')(B.topShops(d.all, c.start, c.end));
+  // goals
+  const gd = B.goalDates(S.plan, d.t);
+  $('#goals').innerHTML = gd.map((g) => `<div class="goal"><div class="meter-top"><span>${g.goal ? `<b>${esc(g.goal)}</b> <span class="soft small">${esc(g.name)}</span>` : `<b>${esc(g.name)}</b>`}</span><span class="num soft small">${g.done ? '<span class="tag good">Reached</span>' : g.month ? 'by ' + longMonth(g.month) + ' ' + g.month.slice(0, 4) : 'over 6 years'}</span></div>
+    <div class="track"><div class="fill" style="background:${COL[g.key] || 'var(--acc)'};width:${Math.min(100, g.balance / g.target * 100)}%"></div></div><span class="soft small num">${R(g.balance)} of ${R(g.target)}</span></div>`).join('') || '<p class="soft">Add a target to a pocket to track a goal.</p>';
+  // nudges
+  const n = [...B.liveAlerts(d.tx, d.liveOpen, d.fc, d.t), ...B.nudges(d.all, S.plan, d.t)];
+  for (const r of B.newCharges(d.tx)) n.unshift({tone: 'warn', title: `New repeating charge: ${r.label}`, body: `${R(r.monthly, r.monthly % 1 ? 2 : 0)} a month (${R(r.yearly)} a year), first seen recently. Keep it only if you use it.`});
+  $('#noticeNote').textContent = `From your last ${B.fullMonths(d.all).slice(-3).length} full months`;
+  const icon = {warn: '!', good: '✓', info: 'i'};
+  $('#nudges').innerHTML = n.map((x) => `<div class="nudge ${x.tone}"><i aria-hidden="true">${icon[x.tone]}</i><b>${esc(x.title)}</b><p>${esc(x.body)}</p></div>`).join('');
+}
+function drawForecast(fc) {
+  const el = $('#fcChart'), W = el.clientWidth || 500, H = el.clientHeight || 190, p = fc.points, m = {l: 8, r: 8, t: 26, b: 22};
+  const vals = p.map((x) => x.bal), lo = Math.min(0, ...vals), hi = Math.max(...vals) * 1.05;
+  const x = (i) => m.l + i * (W - m.l - m.r) / Math.max(1, p.length - 1), y = (v) => m.t + (hi - v) / Math.max(1, hi - lo) * (H - m.t - m.b);
+  const path = p.map((q, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(q.bal).toFixed(1)}`).join('');
+  const neg = fc.low.bal < 0, li = p.indexOf(fc.low);
+  el.innerHTML = `<svg role="img" aria-label="Main account balance forecast until payday"><defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ag)" stop-opacity=".28"/><stop offset="1" stop-color="var(--ag)" stop-opacity="0"/></linearGradient></defs>
+    ${lo < 0 ? `<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--bad)" stroke-dasharray="4 4"/><text x="${W - m.r}" y="${y(0) - 6}" text-anchor="end" style="fill:var(--bad)">R0</text>` : ''}
+    <path d="${path}L${x(p.length - 1)},${H - m.b}L${x(0)},${H - m.b}Z" fill="url(#fg)"/><path d="${path}" fill="none" stroke="var(--ag)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${fc.bills.map((b) => { const i = p.findIndex((q) => q.date === b.date); return i < 0 ? '' : `<circle cx="${x(i)}" cy="${y(p[i].bal)}" r="4" fill="var(--raise)" stroke="var(--ink)" stroke-width="2"/>`; }).join('')}
+    <circle cx="${x(0)}" cy="${y(p[0].bal)}" r="5" fill="var(--ag)"/><text class="lab" x="${x(0)}" y="${y(p[0].bal) - 10}">${R(p[0].bal)} now</text>
+    <text class="lab" x="${x(p.length - 1)}" y="${y(p[p.length - 1].bal) - 10}" text-anchor="end">${R(p[p.length - 1].bal)}</text>
+    ${neg ? `<circle cx="${x(li)}" cy="${y(fc.low.bal)}" r="5" fill="var(--bad)"/>` : ''}
+    <text x="${x(0)}" y="${H - 4}">${fmtDay(p[0].date)}</text><text x="${x(p.length - 1)}" y="${H - 4}" text-anchor="end">Payday ${fmtDay(p[p.length - 1].date)}</text></svg>`;
+}
+
+/* ---------- spending ---------- */
+function renderSpending(d) {
+  const months = d.months; S.month ||= d.cur;
+  $('#monthChips').innerHTML = months.slice().reverse().map((m) => `<button class="chip" aria-pressed="${m.month === S.month}" data-month="${m.month}">${MON[+m.month.slice(5) - 1]}${m.month.slice(0, 4) !== d.cur.slice(0, 4) ? ' ' + m.month.slice(0, 4) : ''}</button>`).join('');
+  const sel = months.find((m) => m.month === S.month) || months[months.length - 1];
+  $('#spendTitle').textContent = `${R(sel.spent)} spent in ${longMonth(sel.month)}${sel.month === d.cur ? ' so far' : ''}`;
+  drawMonths(months);
+  const tx = d.all.filter((t) => t.date.startsWith(S.month) && ['bills', 'everyday', 'wants'].includes(B.groupOf(t.category)));
+  const by = new Map(); for (const t of tx) by.set(t.category, (by.get(t.category) || 0) - t.amount);
+  const avg = new Map(B.categoryAverages(d.all).rows.map((r) => [r.category, r.avg]));
+  const rows = [...by].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]), max = rows.length ? rows[0][1] : 1;
+  $('#catHead').textContent = `Where it went in ${longMonth(S.month)}`;
+  $('#cats').innerHTML = rows.map(([c, v]) => { const a = avg.get(c) || 0, dlt = v - a, g = B.groupOf(c);
+    return `<button class="rowbtn" data-cat="${esc(c)}"><div class="row"><span class="name">${esc(c)}</span><div class="track"><div class="fill" style="width:${v / max * 100}%;background:${g === 'wants' ? 'var(--go)' : 'color-mix(in oklab,var(--ink) 65%,transparent)'}"></div></div><span class="r"><span class="num" style="font-weight:600">${R(v)}</span><br><span class="delta num" style="color:${dlt > a * .15 && dlt > 100 ? 'var(--bad)' : dlt < -100 ? 'var(--good)' : 'var(--soft)'}">${a ? (dlt >= 0 ? '+' : '−') + R(Math.abs(dlt)).slice(1) : 'new'}</span></span></div></button>`; }).join('') || '<p class="soft">Nothing spent yet this month.</p>';
+  const rec = B.recurring(d.all), act = rec.filter((r) => r.status === 'active'), tot = act.reduce((a, r) => a + r.monthly, 0);
+  $('#repHead').textContent = `${act.length} charges repeat: ${R(tot)} a month`;
+  $('#rep').innerHTML = rec.map((r) => `<tr class="${r.status}"><td>${esc(r.label)}${r.status === 'stopped' ? ` <span class="tag">stopped ${fmtDay(r.last)}</span>` : ''}</td><td class="r num">${r.day}</td><td class="r num">${R(r.monthly, r.monthly % 1 ? 2 : 0)}</td><td class="r num">${R(r.yearly)}</td></tr>`).join('');
+  const f = B.funSpend(d.all), fm = Math.max(1, ...f.merchants.map((m) => m.avg));
+  $('#funHead').textContent = `Games, hobbies and betting: ${R(f.avg)} a month`;
+  $('#fun').innerHTML = `<p class="soft small" style="margin-bottom:8px">${R(f.avg * 12)} a year at this rate</p>` + f.merchants.map((m) => `<div class="row"><span class="name" title="${esc(m.label)}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.label)}</span><div class="track"><div class="fill" style="width:${m.avg / fm * 100}%;background:var(--go)"></div></div><span class="r num">${R(m.avg)}</span></div>`).join('');
+}
+function drawMonths(months) {
+  const el = $('#monthsChart'), W = el.clientWidth || 600, H = Math.max(220, el.clientHeight), m = {t: 12, r: 6, b: 26, l: 44};
+  const max = Math.max(...months.map((x) => Math.max(x.spent, x.salary)), 1) * 1.08, nice = Math.ceil(max / 5000) * 5000;
+  const n = months.length, step = (W - m.l - m.r) / n, bw = Math.min(42, step * .62), y = (v) => H - m.b - v / nice * (H - m.t - m.b);
+  el.innerHTML = `<svg role="img" aria-label="Monthly spending against salary">${[0, .5, 1].map((k) => k * nice).map((t) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${t ? 'R' + t / 1000 + 'k' : '0'}</text>`).join('')}
+    ${months.map((x, i) => { const cx = m.l + step * i + step / 2, sel = x.month === S.month, over = x.salary && x.spent > x.salary;
+      return `<g data-month="${x.month}" style="cursor:pointer"><rect x="${cx - step / 2}" y="${m.t}" width="${step}" height="${H - m.t - m.b}" fill="transparent"/>
+      <rect x="${cx - bw / 2}" y="${y(x.spent)}" width="${bw}" height="${y(0) - y(x.spent)}" rx="6" fill="${over ? 'var(--bad)' : 'var(--ink)'}" opacity="${sel ? 1 : .3}"/>
+      ${x.salary ? `<circle cx="${cx}" cy="${y(x.salary)}" r="5" fill="var(--raise)" stroke="var(--ag)" stroke-width="3"/>` : ''}
+      <text x="${cx}" y="${H - 8}" text-anchor="middle" style="${sel ? 'fill:var(--ink);font-weight:600' : ''}">${MON[+x.month.slice(5) - 1]}</text></g>`; }).join('')}</svg>`;
+}
+
+/* ---------- pockets ---------- */
+function renderPockets(d) {
+  $('#pocketTitle').textContent = `${R(d.stored)} saved`;
+  $('#pocketList').innerHTML = S.plan.pockets.map((p) => {
+    const pct = p.target ? Math.min(100, p.balance / p.target * 100) : null;
+    const extra = p.key === 'allangray' ? `<div class="track"><div class="fill" style="background:var(--ag);width:${Math.min(100, p.balance / 46000 * 100)}%"></div></div><span class="soft small">${R(p.balance)} of the R46,000 yearly tax-free limit</span>`
+      : pct != null ? `<div class="track"><div class="fill" style="background:${COL[p.key] || 'var(--acc)'};width:${pct}%"></div></div><span class="soft small">${p.kind === 'spend' ? R(p.target) + ' a year' : `${Math.round(pct)}% of ${R(p.target)}${p.goal ? ' · ' + esc(p.goal) : ''}`}</span>` : `<span class="soft small">Topped up every payday, spent by the next</span>`;
+    return `<div class="card pocket" style="--c:${COL[p.key] || 'var(--line)'}"><div class="card-h" style="margin:0"><h3>${esc(p.name)}</h3><span class="tag">${esc(p.where)}</span></div>
+      <div class="bal num">${R(p.balance)}</div><p class="job">${esc(p.job)}</p>${extra}
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="soft small">${p.monthly ? `+${R(p.monthly)} a month` : 'No monthly top-up'}</span><button class="link" data-edit="${p.key}">Update</button></div></div>`;
+  }).join('');
+  const keys = ['emergency', 'allangray', 'goals'], end = d.proj[d.proj.length - 1];
+  $('#projHead').textContent = `${R(end.total)} by ${longMonth(end.month)} ${end.month.slice(0, 4)}`;
+  $('#projLegend').innerHTML = keys.map((k) => `<span><i style="background:${COL[k]}"></i>${esc(S.plan.pockets.find((p) => p.key === k).name.replace(' tax-free', ''))}</span>`).join('');
+  drawProj(d.proj);
+}
+function drawProj(p) {
+  const el = $('#projChart'), W = el.clientWidth || 700, H = el.clientHeight || 300, keys = ['emergency', 'allangray', 'goals'];
+  const m = {l: 46, r: W < 520 ? 62 : 84, t: 14, b: 28}, max = Math.max(20000, Math.ceil(Math.max(...p.map((r) => r.total)) / 20000) * 20000);
+  const x = (i) => m.l + i * (W - m.l - m.r) / (p.length - 1), y = (v) => H - m.b - v / max * (H - m.t - m.b);
+  let acc = p.map(() => 0), areas = '';
+  for (const k of keys) { const lo = acc.slice(), hi = acc.map((a, i) => a + p[i][k]);
+    areas += `<path d="${hi.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')}${lo.map((_, i) => `L${x(p.length - 1 - i).toFixed(1)},${y(lo[p.length - 1 - i]).toFixed(1)}`).join('')}Z" fill="${COL[k]}" stroke="var(--raise)" stroke-width="2" stroke-linejoin="round"/>`; acc = hi; }
+  const every = W < 520 ? 3 : 2, last = p[p.length - 1];
+  el.innerHTML = `<svg role="img" aria-label="Projected savings by pocket">${[0, .5, 1].map((k) => k * max).map((t) => `<line x1="${m.l}" x2="${W - m.r}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${m.l - 8}" y="${y(t) + 4}" text-anchor="end">${t ? 'R' + t / 1000 + 'k' : '0'}</text>`).join('')}${areas}
+    ${p.map((r, i) => (i % every ? '' : `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${MON[+r.month.slice(5) - 1]}${r.month.endsWith('-01') ? " '" + r.month.slice(2, 4) : ''}</text>`)).join('')}
+    <text class="lab" x="${x(p.length - 1) + 8}" y="${y(last.total) + 4}">${R(last.total)}</text>
+    <line id="cross" y1="${m.t}" y2="${H - m.b}" stroke="var(--ink)" opacity="0"/><rect id="hit" x="${m.l}" y="${m.t}" width="${W - m.l - m.r}" height="${H - m.t - m.b}" fill="transparent"/></svg><div class="tip" id="tip"></div>`;
+  const tip = $('#tip', el), cross = $('#cross', el), names = Object.fromEntries(S.plan.pockets.map((q) => [q.key, q.name]));
+  const show = (cx) => { const i = Math.max(0, Math.min(p.length - 1, Math.round((cx - m.l) / ((W - m.l - m.r) / (p.length - 1))))), r = p[i];
+    cross.setAttribute('x1', x(i)); cross.setAttribute('x2', x(i)); cross.setAttribute('opacity', .35);
+    tip.innerHTML = `<b>${longMonth(r.month)} ${r.month.slice(0, 4)}: ${R(r.total)}</b><br>` + keys.slice().reverse().map((k) => `${esc(names[k])} ${R(r[k])}`).join('<br>');
+    tip.style.opacity = 1; tip.style.left = Math.max(0, Math.min(x(i) + 12, W - tip.offsetWidth - 4)) + 'px'; tip.style.top = m.t + 'px'; };
+  const hit = $('#hit', el); hit.onpointermove = (e) => show(e.clientX - el.getBoundingClientRect().left); hit.onpointerdown = hit.onpointermove;
+  hit.onpointerleave = () => { tip.style.opacity = 0; cross.setAttribute('opacity', 0); };
+}
+
+/* ---------- activity ---------- */
+function renderActivity(d) {
+  d ||= derive();
+  const cats = [...new Set(d.all.map((t) => t.category))].sort(), months = [...new Set(d.all.map((t) => t.date.slice(0, 7)))].sort().reverse();
+  const fc = $('#fCat'), fmo = $('#fMonth'), cv = fc.value, mv = fmo.value;
+  fc.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option${c === cv ? ' selected' : ''}>${esc(c)}</option>`).join('');
+  fmo.innerHTML = '<option value="">All months</option>' + months.map((m) => `<option value="${m}"${m === mv ? ' selected' : ''}>${longMonth(m)} ${m.slice(0, 4)}</option>`).join('');
+  const q = $('#q').value.trim().toLowerCase();
+  const list = d.all.filter((t) => (!fc.value || t.category === fc.value) && (!fmo.value || t.date.startsWith(fmo.value)) && (!q || t.description.toLowerCase().includes(q) || B.labelOf(t.merchant).toLowerCase().includes(q))).slice().reverse();
+  $('#txCount').textContent = `${list.length} transactions`;
+  let html = '', lastDay = '';
+  S.txLimit ||= 80;
+  for (const t of list.slice(0, S.txLimit)) {
+    if (t.date !== lastDay) { html += `<div class="day">${fmtDow(t.date)} ${t.date.slice(0, 4)}</div>`; lastDay = t.date; }
+    const label = B.labelOf(t.merchant);
+    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
+  }
+  $('#txList').innerHTML = html || '<p class="soft" style="padding:20px 0">Nothing matches.</p>';
+  $('#txMore').hidden = list.length <= S.txLimit; $('#txMore').textContent = `Show more (${list.length - S.txLimit} left)`;
+}
+
+/* ---------- sheets ---------- */
+function openSheet(html, after) { $('#sheetBody').innerHTML = html; $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); after && after(); }
+function closeSheet() { $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); }
+async function dataSheet() {
+  const info = CLOUD ? await Store.liveInfo().catch(() => null) : null;
+  const liveUrl = S.liveUrl || '';
+  openSheet(`<h2 id="sheetTitle" style="margin-bottom:6px">Sync</h2>
+    <p class="soft small" style="margin-bottom:16px">${CLOUD ? `Your data lives in a Google Sheet in your Drive. Only you can open this app.` : 'This copy keeps data in this browser only. Set up the Google version for automatic sync.'}</p>
+    <h3>Statements: automatic from Gmail</h3>
+    ${CLOUD ? (() => { const l = S.lastStatement; return `<div class="note" style="margin:8px 0 12px"><p>${l ? `<b>Last read from Gmail:</b> ${esc(l.name)}${l.from ? `, ${esc(fmtDay(l.from))} to ${esc(fmtDay(l.to))}` : ''}. ${l.added ? l.added + ' new rows' : 'Nothing new in it'}, ${esc(ago(l.at))}.` : '<b>No statement read from Gmail yet.</b>'}</p><button class="btn ghost" id="sheetCheck">Check Gmail now</button></div>`; })() : ''}
+    <ol class="how" style="margin:8px 0 14px"><li>In the Capitec app, open your main account and tap <b>Email statement</b>. Pick the dates since your last statement (or longer, overlaps are fine) and send it to <b>${esc(S.meta.me || 'your Gmail')}</b>.</li><li>Open Baobab. It finds the statement in Gmail, reads it and adds anything new. Live entries it covers are replaced.</li></ol>
+    <div class="drop" id="drop"><b>Or add a statement PDF here</b><label class="btn ghost" for="file">Choose a file</label><input id="file" type="file" accept="application/pdf,.pdf,.txt" hidden><p class="msg" id="msg" role="status"></p></div>
+    ${CLOUD && info ? `<h3 style="margin-top:22px">The Baobab app</h3>
+    ${REMOTE ? `<div class="note" style="margin:8px 0"><p><b>This device is connected</b> to your Google account. Install it: on iPhone tap Share → <b>Add to Home Screen</b>; on a laptop use the install icon in the address bar.</p><button class="btn ghost" id="unlink">Disconnect</button></div>`
+      : `<p class="soft small" style="margin:6px 0 10px">Baobab on its own address: full screen, no Google bar, installs like an app on your phone and laptop. Open this link once on each device.</p>
+    <a class="btn" style="width:100%;text-decoration:none" href="${esc(info.appLink)}" target="_blank" rel="noopener">Open the Baobab app</a>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn ghost" id="copyApp" style="flex:1">Copy link for another device</button></div>`}
+    <p class="soft small" style="margin-top:8px">Lost a phone? <button class="link" id="newKey">Disconnect every device</button> and open the new link again.</p>
+    <h3 style="margin-top:22px">Live: every Capitec notification</h3>
+    <p class="soft small" style="margin:6px 0 10px">${S.live.length ? `Working: the last one arrived ${esc(ago(S.live[S.live.length - 1].received || S.live[S.live.length - 1].date))}.` : 'Set up once on your iPhone. After that every purchase and payment lands here by itself.'}</p>
+    <details><summary class="soft small">Set up the iPhone Shortcut</summary>
+    <button class="btn" id="copyLink" style="width:100%">Copy your Shortcut link</button><input class="field" id="linkOut" readonly hidden style="width:100%;margin-top:8px">
+    <ol class="how" style="margin-top:12px"><li>Shortcuts → <b>Automation</b> → <b>+</b> → <b>Notification</b> → app <b>Capitec</b> → <b>Run Immediately</b> → <b>Next</b> → <b>New Blank Automation</b> (tap <b>Edit</b> if it asks you to describe one).</li>
+      <li>Search <b>Get Contents of URL</b> and tap it. Tap <b>URL</b>, paste the link, then tap <b>Select Variable</b> → <b>Shortcut Input</b> so it sits at the very end. Tap ✓ and go back. Done: nothing else to set.</li>
+      <li>Make a small purchase. It shows in Activity with a <span class="tag live">Live</span> tag.</li></ol></details>
+    <details style="margin-top:12px"><summary class="soft small">Address and token</summary>
+    <label class="small soft" for="liveUrl" style="display:block;margin-top:10px">Baobab live web app address</label><div style="display:flex;gap:8px;margin:4px 0 8px"><input class="field" id="liveUrl" style="flex:1;min-width:0" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(liveUrl)}"><button class="btn ghost" id="copyUrl" style="min-height:36px">Copy</button></div>
+    <div class="code"><span id="tok">${esc(info.token)}</span><button class="btn ghost" id="copyTok" style="min-height:36px">Copy token</button></div>
+    <p class="soft small" style="margin-top:8px">Anyone with this token could add fake entries, never read your data. <button class="link" id="newTok">Make a new token</button></p></details>` : ''}
+    ${!CLOUD ? `<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px"><button class="btn danger" id="erase">Erase from this browser</button></div>` : ''}`, () => {
+    const drop = $('#drop');
+    $('#file').onchange = (e) => e.target.files[0] && importFile(e.target.files[0]);
+    ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('on'); }));
+    ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('on'); }));
+    drop.addEventListener('drop', (e) => e.dataTransfer.files[0] && importFile(e.dataTransfer.files[0]));
+    if ($('#copyLink')) $('#copyLink').onclick = async () => {
+      const base = ($('#liveUrl').value || S.liveUrl || '').trim().split('?')[0];
+      if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(base)) { $('details') && ($('details').open = true); return toast('Paste your Baobab live address under Address and token first.'); }
+      const link = `${base}?t=${encodeURIComponent($('#tok').textContent.trim())}&n=`;
+      try { await navigator.clipboard.writeText(link); toast('Link copied. Paste it in Shortcuts.'); } catch { const f = $('#linkOut'); f.hidden = false; f.value = link; f.focus(); f.select(); toast('Select the link and copy it.'); }
+    };
+    if ($('#sheetCheck')) $('#sheetCheck').onclick = () => { closeSheet(); autoImport(true); };
+    if ($('#copyUrl')) $('#copyUrl').onclick = async () => { const v = $('#liveUrl').value.trim(); if (!v) return toast('Paste your Baobab live address first.'); try { await navigator.clipboard.writeText(v); toast('Address copied'); } catch { $('#liveUrl').select(); toast('Select the address and copy it.'); } };
+    if ($('#copyTok')) $('#copyTok').onclick = async () => { try { await navigator.clipboard.writeText($('#tok').textContent); toast('Token copied'); } catch { toast('Select the token and copy it.'); } };
+    if ($('#newTok')) $('#newTok').onclick = async () => { try { const i = await gs('api_newToken'); $('#tok').textContent = i.token; toast('New token made. Update your Shortcut.'); } catch (er) { toast(er.message); } };
+    if ($('#liveUrl')) $('#liveUrl').onchange = (e) => { S.liveUrl = e.target.value.trim(); Store.saveState({liveUrl: S.liveUrl}).catch(() => {}); };
+    if ($('#copyApp')) $('#copyApp').onclick = async () => { try { await navigator.clipboard.writeText(info.appLink); toast('Link copied. Open it on your other device.'); } catch { toast('Long-press Open the Baobab app to copy it.'); } };
+    if ($('#unlink')) $('#unlink').onclick = (e) => { if (e.target.dataset.sure) { localStorage.removeItem(RKEY); location.reload(); } else { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to disconnect'; } };
+    if ($('#newKey')) $('#newKey').onclick = async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = 'Tap again: every device signs out'; return; } try { const i = await gs('api_newAppKey'); if (REMOTE) { const h = new URLSearchParams(i.appLink.split('#')[1]); localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); } toast('Done. Open the new link on your other devices.'); closeSheet(); } catch (er) { toast(er.message); } };
+    if ($('#erase')) $('#erase').onclick = (e) => { if (e.target.dataset.sure) { local.set({}); location.reload(); } else { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to erase everything'; } };
+  });
+}
+function catSheet(cat) {
+  const d = derive(), tx = d.all.filter((t) => t.category === cat && t.date.startsWith(S.month)).slice().reverse();
+  const by = new Map(); for (const t of tx) by.set(t.merchant, (by.get(t.merchant) || 0) - t.amount);
+  openSheet(`<h2 id="sheetTitle">${esc(cat)}</h2><p class="soft small" style="margin:4px 0 14px">${longMonth(S.month)} · ${R(tx.reduce((a, t) => a - t.amount, 0))} across ${tx.length} payments</p>
+    ${[...by].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, v]) => `<div class="meter-top" style="padding:8px 0;border-top:1px solid var(--line)"><span>${esc(B.labelOf(m))}</span><b class="num">${R(v)}</b></div>`).join('')}
+    <h3 style="margin:18px 0 4px">Payments</h3>${tx.slice(0, 40).map((t) => `<div class="meter-top" style="padding:6px 0"><span class="soft">${fmtDay(t.date)} · ${esc(B.labelOf(t.merchant))}</span><span class="num">${R(t.amount, 2)}</span></div>`).join('')}`);
+}
+function txSheet(id) {
+  const t = derive().all.find((x) => x.id === id); if (!t) return;
+  openSheet(`<h2 id="sheetTitle">${esc(B.labelOf(t.merchant))}</h2><p class="soft small" style="margin:4px 0 14px">${fmtDow(t.date)} · ${esc(t.description)}${t.live ? ' · <span class="tag live">Live</span> until your statement confirms it' : ''}</p>
+    <div class="fig" style="font-size:34px;font-weight:700;margin-bottom:10px">${R(t.amount, 2)}</div>
+    ${((past) => `<div class="moves-foot" style="margin:0 0 16px;padding:12px 0 0">${t.received ? `<span><small>Time</small><b>${new Date(t.received).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false})}</b></span>` : ''}${t.avail != null ? `<span><small>Balance after</small><b class="num">${R(t.avail, 2)}</b></span>` : ''}${past.length ? `<span><small>Visits on statements</small><b>${past.length}× · ${R(past.reduce((a, x) => a - x.amount, 0) / past.length)} avg</b></span>` : `<span><small>Visits on statements</small><b>First time</b></span>`}</div>`)(derive().tx.filter((x) => x.merchant === t.merchant && x.amount < 0 && x.id !== t.id))}
+    <label class="small soft" for="recat">Category</label><select id="recat" style="width:100%;margin:6px 0 10px">${B.CATEGORIES.map((c) => `<option${c === t.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
+    <p class="soft small" style="margin-bottom:14px">Baobab uses this for every payment to ${esc(B.labelOf(t.merchant))}, now and later.</p>
+    <div style="display:flex;gap:10px"><button class="btn" id="saveCat" style="flex:1">Save</button>${t.live ? '<button class="btn danger" id="delLive">Remove</button>' : ''}</div>`, () => {
+    $('#saveCat').onclick = () => { S.overrides[t.merchant] = $('#recat').value; persist(['overrides']); closeSheet(); render(); toast(`${B.labelOf(t.merchant)} is now ${S.overrides[t.merchant]}`); };
+    if ($('#delLive')) $('#delLive').onclick = async () => { await Store.deleteLive([t.liveId]); S.live = S.live.filter((l) => l.id !== t.liveId); closeSheet(); render(); toast('Removed'); };
+  });
+}
+function editSheet(key) {
+  const p = S.plan.pockets.find((x) => x.key === key);
+  openSheet(`<h2 id="sheetTitle">${esc(p.name)}</h2><p class="soft small" style="margin:4px 0 14px">Type the balance the ${esc(p.where)} app shows.</p>
+    <form id="balForm" style="display:flex;gap:8px"><input class="field" id="balIn" inputmode="decimal" value="${p.balance}" aria-label="Balance" style="flex:1"><button class="btn">Save</button></form>`, () => {
+    $('#balIn').focus();
+    $('#balForm').onsubmit = (e) => { e.preventDefault(); const v = parseFloat($('#balIn').value.replace(/[^\d.]/g, '')); if (!isFinite(v)) return toast('Type a number, like 25000');
+      p.balance = v; persist(['plan']); closeSheet(); render(); toast(`${p.name} updated`); };
+  });
+}
+function planSheet() {
+  const P = S.plan, f = (id, v, lab) => `<label class="small soft" for="${id}">${lab}</label><input class="field" id="${id}" inputmode="decimal" value="${v ?? ''}" style="width:100%;margin:4px 0 10px">`;
+  const two = (a, b) => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${a}${b}</div>`;
+  openSheet(`<h2 id="sheetTitle">Your plan</h2><p class="soft small" style="margin:4px 0 16px">Rand amounts. Pocket balances: what the bank app shows today.</p><form id="planForm">
+    ${two(f('p-th', P.take_home || '', 'Take-home pay a month'), f('p-pd', P.payday, 'Payday (day of month)'))}
+    ${two(f('p-bills', P.budget.bills || '', 'Bills a month'), f('p-every', P.budget.everyday || '', 'Everyday a month'))}
+    ${P.pockets.map((p) => `<h3 style="margin:8px 0">${esc(p.name)}</h3>${two(f('b-' + p.key, p.balance, 'Balance now'), f('m-' + p.key, p.monthly || '', p.debit_order ? 'Debit order a month' : 'In every payday'))}${p.kind !== 'invest' && p.key !== 'wants' ? f('t-' + p.key, p.target || '', p.kind === 'spend' ? 'Target a year' : 'Target') : ''}${p.key === 'goals' ? `<label class="small soft" for="g-name">What it's for</label><input class="field" id="g-name" value="${esc(p.goal || '')}" style="width:100%;margin:4px 0 10px">` : ''}`).join('')}
+    <button class="btn" style="width:100%;margin-top:6px">Save plan</button></form>
+    <details style="margin-top:16px"><summary class="soft small">Paste a saved plan</summary><textarea id="planPaste" rows="4" class="field" style="width:100%;margin-top:8px;padding:10px;font:13px ui-monospace,monospace"></textarea><button class="btn ghost" id="usePaste" style="margin-top:8px">Use this plan</button></details>`, () => {
+    $('#planForm').onsubmit = (e) => { e.preventDefault(); const n = (id) => { const v = parseFloat(($('#' + id)?.value || '').replace(/[^\d.]/g, '')); return isFinite(v) ? v : 0; };
+      P.take_home = n('p-th'); P.payday = Math.min(31, Math.max(1, n('p-pd') || 25)); P.budget.bills = n('p-bills'); P.budget.everyday = n('p-every');
+      for (const p of P.pockets) { p.balance = n('b-' + p.key); p.monthly = n('m-' + p.key); if ($('#t-' + p.key)) p.target = n('t-' + p.key) || null; }
+      const g = P.pockets.find((p) => p.key === 'goals'); if (g && $('#g-name')) g.goal = $('#g-name').value.trim() || 'Next big purchase';
+      P.budget.wants = P.pockets.find((p) => p.key === 'wants')?.monthly || 0;
+      P.budget.savings = P.pockets.filter((p) => p.key !== 'wants').reduce((a, p) => a + (p.monthly || 0), 0);
+      persist(['plan']); closeSheet(); render(); toast('Plan saved'); };
+    $('#usePaste').onclick = () => { try { const j = JSON.parse($('#planPaste').value); const p = j.plan || j; if (!p.pockets || !p.budget) throw 0; S.plan = p; persist(['plan']); closeSheet(); render(); toast('Plan loaded'); } catch { toast("That isn't a Baobab plan."); } };
+  });
+}
+
+/* ---------- sync status ---------- */
+function setSync(t) { $('#syncRail').innerHTML = esc(t); $('#syncTop').textContent = t; }
+function renderSync() {
+  const d = S.tx.length ? S.tx[S.tx.length - 1].date : null, lastLive = S.live.length ? S.live[S.live.length - 1] : null;
+  const where = S.sample ? 'Sample data' : CLOUD ? 'Synced with Google' : 'This browser';
+  $('#syncRail').innerHTML = `<span><span class="dot ${lastLive ? 'on' : ''}"></span>${esc(where)}</span>${d ? `<span>Statement to ${fmtDay(d)}</span>` : ''}${lastLive ? `<span>Live: ${esc(B.labelOf(B.merchantOf(((lastLive.raw && B.readNotification('', lastLive.raw)) || lastLive).merchant)))} ${lastLive.received ? ago(lastLive.received) : fmtDay(lastLive.date)}</span>` : ''}`;
+  $('#syncTop').innerHTML = `<span class="dot ${lastLive ? 'on' : ''}"></span>${d ? 'To ' + fmtDay(lastLive ? lastLive.date : d) : esc(where)}`;
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-view]'); if (tab) return go(tab.dataset.view);
+  if (e.target.closest('[data-open=data]')) return dataSheet();
+  if (e.target.closest('[data-open=plan]')) return planSheet();
+  if (e.target.closest('#trySample')) return useSample();
+  if (e.target.closest('#checkGmail')) return autoImport(true);
+  if (e.target.closest('[data-reload]')) { S.loadError = ''; renderNotice(); return boot(true); }
+  const rt = e.target.closest('[data-retry]'); if (rt) { const id = rt.dataset.retry; S.failed = S.failed.filter((f) => f.messageId !== id); return Store.retry(id).then(() => autoImport(true)).catch((er) => toast(er.message)); }
+  const dm = e.target.closest('[data-dismiss]'); if (dm) { const id = dm.dataset.dismiss; S.failed = S.failed.filter((f) => f.messageId !== id); renderNotice(); return Store.dismiss(id).catch(() => {}); }
+  if (e.target.closest('#scrim')) return closeSheet();
+  const chip = e.target.closest('[data-month]'); if (chip) { S.month = chip.dataset.month; return render(); }
+  const cat = e.target.closest('[data-cat]'); if (cat) return catSheet(cat.dataset.cat);
+  const tx = e.target.closest('[data-tx]'); if (tx) return txSheet(tx.dataset.tx);
+  const ed = e.target.closest('[data-edit]'); if (ed) return editSheet(ed.dataset.edit);
+  const tick = e.target.closest('.tick');
+  if (tick) {
+    const id = tick.closest('.step').dataset.id, move = S.plan.moves.find((m) => m.id === id);
+    if (move) {
+      const done = S.plan.done_moves.includes(id), sign = done ? -1 : 1;
+      S.plan.done_moves = done ? S.plan.done_moves.filter((x) => x !== id) : [...S.plan.done_moves, id];
+      for (const p of S.plan.pockets) { if (p.key === move.from) p.balance -= sign * move.amount; if (p.key === move.to) p.balance += sign * move.amount; }
+      if (!done) toast(`${move.note.split(':')[0]}: done`);
+      persist(['plan']);
+    } else { S.ticks = S.ticks.includes(id) ? S.ticks.filter((x) => x !== id) : [...S.ticks, id]; persist(['ticks']); }
+    render();
+  }
+});
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+$('#q').addEventListener('input', () => { S.txLimit = 80; renderActivity(); }); $('#fCat').addEventListener('change', () => { S.txLimit = 80; renderActivity(); }); $('#fMonth').addEventListener('change', () => { S.txLimit = 80; renderActivity(); });
+$('#txMore').addEventListener('click', () => { S.txLimit += 200; renderActivity(); });
+window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (['today', 'spending', 'pockets', 'activity'].includes(v) && v !== S.view) go(v); });
+let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { if (['today', 'spending', 'pockets'].includes(S.view)) render(); }, 120); }).observe($('main'));
+if (!GAS && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD && Date.now() - (S.loadedAt || 0) > 60000) boot(true); });
+
+function render() {
+  renderSync();
+  if (!S.tx.length && !S.live.length) return;
+  if (['empty', 'loading'].includes(S.view)) return;
+  const d = derive();
+  if (S.view === 'today') renderToday(d);
+  if (S.view === 'spending') renderSpending(d);
+  if (S.view === 'pockets') renderPockets(d);
+  if (S.view === 'activity') renderActivity(d);
+}
+function useSample() {
+  const s = JSON.parse($('#sample').textContent || 'null'); if (!s) return toast('No sample data in this copy.');
+  S.sample = true; S.tx = s; S.live = [{id: 'demo1', date: todayISO(), merchant: 'Checkers Somerset West', amount: 214.9, source: 'applepay', received: new Date().toISOString()}];
+  S.plan = B.clonePlan(B.SAMPLE_PLAN); S.overrides = {}; S.ticks = []; go('today');
+}
+async function boot(quiet) {
+  try {
+    const r = await Store.load();
+    if (!r || !Array.isArray(r.tx)) throw new Error('the server sent nothing back');
+    S.loadError = '';
+    S.tx = (r.tx || []).map((t) => ({...t, amount: +t.amount, balance: t.balance == null || t.balance === '' ? null : +t.balance}));
+    S.live = r.live || []; const st = r.state || {};
+    S.plan = st.plan || S.plan; S.overrides = st.overrides || {}; S.ticks = st.ticks || []; S.liveUrl = st.liveUrl || ''; S.failed = (st.failed || []).filter((f) => f.messageId); S.lastStatement = st.lastStatement || null;
+    S.meta = {pending: r.pending || 0, me: r.me}; S.loadedAt = Date.now();
+    if (!quiet) { const v = location.hash.slice(1); go(['today', 'spending', 'pockets', 'activity'].includes(v) ? v : 'today'); } else { after(); renderNotice(); }
+    autoImport();
+  } catch (e) {
+    // Keep what's on screen if we already had data (a network blip on returning to the app).
+    S.loadError = /authori[sz]|permission|log ?in/i.test(e.message) ? 'Your Google sign-in expired. Close Baobab and open it again.' : `Couldn't reach your Google account: ${e.message}`;
+    setSync('Offline'); if (!S.tx.length && !S.live.length) go(S.sample ? 'today' : 'empty'); else renderNotice();
+  }
+}
+boot();
+}
+</script>
+</body>
+</html>
