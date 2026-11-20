@@ -125,8 +125,20 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .tx:active,.rowbtn:active,.tick:active{transform:scale(.985)}.tx,.rowbtn{transition:background var(--d1),transform var(--d1)}
 @media(hover:hover){.card{transition:box-shadow var(--d2)}.card:hover{box-shadow:var(--shadow),0 0 0 1px color-mix(in oklab,var(--ink) 8%,transparent)}}
 @media(display-mode:standalone){body{overscroll-behavior-y:none}}
+/* money flow + balance */
+.flow{min-height:324px}.flow .halo{paint-order:stroke;stroke:var(--raise);stroke-width:4px;stroke-linejoin:round}.halo2{paint-order:stroke;stroke:var(--raise);stroke-width:4px;stroke-linejoin:round}.flow text{font:11px var(--mono);fill:var(--soft)}.flow .lab{fill:var(--ink);font-weight:600;font-size:12px}
+.flow .ribbons{animation:sweep 1.1s var(--e-out) both}.flow .node{animation:arrive .6s .5s var(--e-out) both}
+@keyframes sweep{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.flow path{transition:opacity var(--d1)}.flow path:hover{opacity:.7}
+.balline{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.4s var(--e-out) .1s forwards}.balarea{animation:arrive 1s .5s var(--e-out) both}
+.balnow{animation:blink 2.4s ease-in-out infinite}
+@keyframes draw{to{stroke-dashoffset:0}}
+/* pocket rings */
+.pk-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.ring{width:56px;height:56px;flex:none}
+.ring text{font:600 12px var(--mono);fill:var(--ink)}.ring-v{animation:ring 1.2s var(--e-out) .15s forwards}
+@keyframes ring{to{stroke-dashoffset:var(--to)}}
 /* calendar heatmap */
-.heat{display:grid;grid-template-columns:repeat(26,minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:3px}
+.heat{display:grid;grid-template-columns:repeat(26,minmax(0,22px));justify-content:start;grid-template-rows:repeat(7,auto);gap:3px}
 .hc{aspect-ratio:1;width:100%;min-width:0;padding:0;border:0;border-radius:3px;background:color-mix(in oklab,var(--ink) 6%,transparent);transition:transform var(--d1) var(--e-out),box-shadow var(--d1)}
 .legend .hc{width:10px;height:10px}
 .hc.l1{background:color-mix(in oklab,var(--go) 22%,transparent)}.hc.l2{background:color-mix(in oklab,var(--go) 42%,transparent)}.hc.l3{background:color-mix(in oklab,var(--go) 64%,transparent)}.hc.l4{background:color-mix(in oklab,var(--go) 84%,transparent)}.hc.l5{background:var(--go)}
@@ -309,6 +321,8 @@ tr.stopped td{color:var(--soft)}
     <section class="view" id="v-spending" hidden>
       <div class="head"><h1 id="spendTitle">Spending</h1></div>
       <div class="chips" id="monthChips" role="group" aria-label="Month"></div>
+      <div class="card"><div class="card-h"><h3 id="flowHead">Where the money flowed</h3><span class="soft small" id="flowNote"></span></div><div class="flow" id="flow" role="img"></div></div>
+      <div class="card"><div class="card-h"><h3>Your main account balance</h3><span class="soft small" id="balNote"></span></div><div class="chart" id="balChart" style="min-height:220px"></div></div>
       <div class="card"><div class="card-h"><h3>Every day, last 26 weeks</h3><span class="legend" id="heatLegend"></span></div><div class="heat" id="heat" role="img" aria-label="Daily spending calendar"></div><p class="soft small" style="margin-top:10px">Everyday and wants spending per day. Tap a day to see what you bought.</p></div>
       <div class="cols">
         <div class="card"><div class="card-h"><h3>Spending against salary</h3><span class="legend"><span><i style="background:var(--ink)"></i>Spent</span><span><i style="background:var(--ag);border-radius:50%"></i>Salary</span></span></div><div class="chart" id="monthsChart" style="min-height:240px"></div><p class="soft small" style="margin-top:8px">Tap a bar to open that month. Transfers between your pockets are left out.</p></div>
@@ -1212,6 +1226,66 @@ function drawForecast(fc) {
 }
 
 /* ---------- spending ---------- */
+function drawFlow(d) {
+  // Money in on the left, where it went on the right; ribbon width = rands. Pocket transfers count as saving.
+  const mon = S.month, tx = d.all.filter((t) => t.date.startsWith(mon)), sum = (f) => tx.filter(f).reduce((a, t) => a + Math.abs(t.amount), 0);
+  const g = (t) => B.groupOf(t.category), inc = sum((t) => t.amount > 0 && g(t) !== 'internal');
+  const outs = [['Bills', sum((t) => t.amount < 0 && g(t) === 'bills'), 'color-mix(in oklab,var(--ink) 45%,transparent)'],
+    ['Everyday', sum((t) => t.amount < 0 && g(t) === 'everyday'), 'var(--em)'], ['Wants', sum((t) => t.amount < 0 && g(t) === 'wants'), 'var(--go)'],
+    ['To pockets', Math.max(0, sum((t) => t.amount < 0 && g(t) === 'internal') - sum((t) => t.amount > 0 && g(t) === 'internal')), 'var(--ag)']].filter((o) => o[1] > 0.5);
+  const spent = outs.reduce((a, o) => a + o[1], 0), left = inc - spent;
+  if (left > 0.5) outs.push(['Left over', left, 'color-mix(in oklab,var(--good) 55%,transparent)']);
+  const ins = [['Money in', inc, 'var(--ink)']]; if (left < -0.5) ins.push(['From savings', -left, 'var(--bad)']);
+  const total = Math.max(1, ins.reduce((a, i) => a + i[1], 0)), el = $('#flow'), W = el.clientWidth || 600, H = 300, gap = 10, nw = 12;
+  const lx = 0, rx = W - (W < 520 ? 118 : 170), sc = (H - gap * (outs.length - 1)) / total;
+  let y = 0; const L = ins.map(([n, v, c]) => { const o = {n, v, c, y, h: v * sc}; y += o.h + gap; return o; });
+  y = 0; const Rr = outs.map(([n, v, c]) => { const o = {n, v, c, y, h: v * sc}; y += o.h + gap; return o; });
+  let paths = '', ly = L.map((l) => l.y), li = 0;
+  for (const r of Rr) {
+    let need = r.h, ry = r.y;
+    while (need > 0.01 && li < L.length) {
+      const take = Math.min(need, L[li].y + L[li].h - ly[li]), y0 = ly[li], x0 = lx + nw, x1 = rx, m = (x0 + x1) / 2;
+      paths += `<path d="M${x0},${y0}C${m},${y0} ${m},${ry} ${x1},${ry}L${x1},${ry + take}C${m},${ry + take} ${m},${y0 + take} ${x0},${y0 + take}Z" fill="${r.c}" opacity=".38"><title>${esc(L[li].n)} → ${esc(r.n)}: ${R(take / sc)}</title></path>`;
+      ly[li] += take; ry += take; need -= take; if (ly[li] >= L[li].y + L[li].h - 0.01) li++;
+    }
+  }
+  const lab = (o, x, anchor) => `<text x="${x}" y="${o.y + Math.min(o.h / 2, 999) + 4}" text-anchor="${anchor}" class="lab">${esc(o.n)}</text><text x="${x}" y="${o.y + o.h / 2 + 20}" text-anchor="${anchor}">${R(o.v)} · ${Math.round(o.v / total * 100)}%</text>`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H + 24}" style="width:100%;height:${H + 24}px" aria-hidden="true"><g class="ribbons">${paths}</g>
+    ${L.map((l) => `<rect x="${lx}" y="${l.y}" width="${nw}" height="${Math.max(2, l.h)}" rx="3" fill="${l.c}"/>`).join('')}
+    ${Rr.map((r) => `<rect class="node" x="${rx}" y="${r.y}" width="${nw}" height="${Math.max(2, r.h)}" rx="3" fill="${r.c}"/>${lab(r, rx + nw + 10, 'start')}`).join('')}
+    ${(() => { let prev = -99; return L.map((l) => { const ty = Math.max(l.y + 18, prev + 42); prev = ty; return `<text x="${lx + nw + 10}" y="${ty}" class="lab halo">${esc(l.n)}</text><text x="${lx + nw + 10}" y="${ty + 16}" class="halo">${R(l.v)}</text>`; }).join(''); })()}</svg>`;
+  $('#flowHead').textContent = `Where the money flowed in ${longMonth(mon)}`;
+  $('#flowNote').textContent = left >= 0 ? `${R(left)} left over` : `${R(-left)} more out than in`;
+  el.setAttribute('aria-label', `${longMonth(mon)}: ${R(inc)} in. ` + outs.map((o) => `${o[0]} ${R(o[1])}`).join(', '));
+}
+function drawBalance(d) {
+  // The real balance after every statement day, then Capitec's live figure: the line draws itself in.
+  const pts = []; const seen = new Map();
+  for (const t of d.tx) if (t.balance != null) seen.set(t.date, t.balance);
+  for (const [date, bal] of seen) pts.push({date, bal});
+  if (d.fc && d.fc.bankAsOf) pts.push({date: todayISO(), bal: d.fc.start});
+  const since = new Date(B.D(todayISO()).getTime() - 183 * 864e5).toISOString().slice(0, 10), p = pts.filter((x) => x.date >= since);
+  const el = $('#balChart'); if (p.length < 2) { el.innerHTML = '<p class="soft small">Add a statement to see your balance over time.</p>'; return; }
+  const W = el.clientWidth || 600, H = 220, m = {t: 16, r: 8, b: 24, l: 8}, t0 = B.D(p[0].date).getTime(), t1 = B.D(p[p.length - 1].date).getTime();
+  const lo = Math.min(0, ...p.map((x) => x.bal)), hi = Math.max(...p.map((x) => x.bal)) * 1.08 || 1;
+  const X = (ds) => m.l + (B.D(ds).getTime() - t0) / Math.max(1, t1 - t0) * (W - m.l - m.r), Y = (v) => m.t + (hi - v) / (hi - lo) * (H - m.t - m.b);
+  const line = p.map((x, i) => `${i ? 'L' : 'M'}${X(x.date).toFixed(1)},${Y(x.bal).toFixed(1)}`).join('');
+  const peak = p.reduce((a, x) => (x.bal > a.bal ? x : a)), low = p.reduce((a, x) => (x.bal < a.bal ? x : a)), last = p[p.length - 1];
+  const months = []; for (let dt = new Date(B.D(p[0].date)); dt <= B.D(last.date); dt.setUTCMonth(dt.getUTCMonth() + 1, 1)) months.push(dt.toISOString().slice(0, 7));
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--ag)" stop-opacity=".28"/><stop offset="1" stop-color="var(--ag)" stop-opacity="0"/></linearGradient></defs>
+    ${months.slice(1).map((mo) => `<line x1="${X(mo + '-01')}" x2="${X(mo + '-01')}" y1="${m.t}" y2="${H - m.b}" stroke="var(--line)"/><text x="${X(mo + '-01') + 4}" y="${H - 6}">${MON[+mo.slice(5) - 1]}</text>`).join('')}
+    ${lo < 0 ? `<line x1="${m.l}" x2="${W - m.r}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--bad)" stroke-dasharray="3 3" opacity=".7"/>` : ''}
+    <path class="balarea" d="${line}L${X(last.date)},${H - m.b}L${X(p[0].date)},${H - m.b}Z" fill="url(#bg)"/>
+    <path class="balline" d="${line}" pathLength="1" fill="none" stroke="var(--ag)" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${X(peak.date)}" cy="${Y(peak.bal)}" r="3.5" fill="var(--ag)"/><text class="lab halo2" x="${Math.min(X(peak.date) + 8, W - 90)}" y="${Math.max(12, Y(peak.bal) - 8)}">${R(peak.bal)} high</text>
+    <circle cx="${X(low.date)}" cy="${Y(low.bal)}" r="3.5" fill="var(--bad)"/><text class="lab halo2" x="${Math.min(X(low.date) + 8, W - 90)}" y="${Y(low.bal) - 8}">${R(low.bal)} low</text>
+    <circle class="balnow" cx="${X(last.date)}" cy="${Y(last.bal)}" r="5" fill="var(--sig)"/></svg><div class="tip" id="balTip"></div>`;
+  $('#balNote').textContent = `${R(last.bal)} now`;
+  const svg = el.querySelector('svg'), tip = $('#balTip');
+  svg.onpointermove = (e) => { const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * W, n = p.reduce((a, q) => (Math.abs(X(q.date) - x) < Math.abs(X(a.date) - x) ? q : a));
+    tip.style.opacity = 1; tip.style.left = Math.min(r.width - 140, Math.max(0, X(n.date) / W * r.width - 60)) + 'px'; tip.style.top = Math.max(0, Y(n.bal) / H * r.height - 44) + 'px'; tip.textContent = `${fmtDow(n.date)} · ${R(n.bal)}`; };
+  svg.onpointerleave = () => { tip.style.opacity = 0; };
+}
 function drawHeat(d) {
   // A calendar of daily spending: darker means more. Weeks run left to right, Monday at the top.
   const by = new Map(); for (const t of d.all) if (t.amount < 0 && ['everyday', 'wants'].includes(B.groupOf(t.category))) by.set(t.date, (by.get(t.date) || 0) - t.amount);
@@ -1233,6 +1307,7 @@ function renderSpending(d) {
   const sel = months.find((m) => m.month === S.month) || months[months.length - 1];
   $('#spendTitle').textContent = `${R(sel.spent)} spent in ${longMonth(sel.month)}${sel.month === d.cur ? ' so far' : ''}`;
   drawMonths(months);
+  drawFlow(d); drawBalance(d);
   const tx = d.all.filter((t) => t.date.startsWith(S.month) && ['bills', 'everyday', 'wants'].includes(B.groupOf(t.category)));
   const by = new Map(); for (const t of tx) by.set(t.category, (by.get(t.category) || 0) - t.amount);
   const avg = new Map(B.categoryAverages(d.all).rows.map((r) => [r.category, r.avg]));
@@ -1267,7 +1342,9 @@ function renderPockets(d) {
     const extra = p.key === 'allangray' ? `<div class="track"><div class="fill" style="background:var(--ag);width:${Math.min(100, p.balance / 46000 * 100)}%"></div></div><span class="soft small">${R(p.balance)} of the R46,000 yearly tax-free limit</span>`
       : pct != null ? `<div class="track"><div class="fill" style="background:${COL[p.key] || 'var(--acc)'};width:${pct}%"></div></div><span class="soft small">${p.kind === 'spend' ? R(p.target) + ' a year' : `${Math.round(pct)}% of ${R(p.target)}${p.goal ? ' · ' + esc(p.goal) : ''}`}</span>` : `<span class="soft small">Topped up every payday, spent by the next</span>`;
     return `<div class="card pocket" style="--c:${COL[p.key] || 'var(--line)'}"><div class="card-h" style="margin:0"><h3>${esc(p.name)}</h3><span class="tag">${esc(p.where)}</span></div>
-      <div class="bal num">${R(p.balance)}</div><p class="job">${esc(p.job)}</p>${extra}
+      <div class="pk-top"><div class="bal num">${R(p.balance)}</div>${(() => { const v = p.key === 'allangray' ? Math.min(100, p.balance / 46000 * 100) : pct; if (v == null) return ''; const c = 2 * Math.PI * 22;
+        return `<svg class="ring" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="color-mix(in oklab,var(--ink) 9%,transparent)" stroke-width="6"/><circle class="ring-v" cx="28" cy="28" r="22" fill="none" stroke="${COL[p.key] || 'var(--acc)'}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" style="--to:${c * (1 - v / 100)}" transform="rotate(-90 28 28)"/><text x="28" y="32" text-anchor="middle">${Math.round(v)}%</text></svg>`; })()}</div>
+      <p class="job">${esc(p.job)}</p>${extra}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="soft small">${p.monthly ? `+${R(p.monthly)} a month` : 'No monthly top-up'}</span><button class="link" data-edit="${p.key}">Update</button></div></div>`;
   }).join('');
   const keys = ['emergency', 'allangray', 'goals'], end = d.proj[d.proj.length - 1];
