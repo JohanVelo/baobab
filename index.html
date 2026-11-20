@@ -98,6 +98,7 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .hero .big small{font:500 .2em var(--mono);letter-spacing:.02em;color:var(--bandsoft);margin-left:10px;vertical-align:.9em}
 .hero .sub{color:var(--bandsoft);max-width:40ch;font-size:15px}
 .hero .sub b{color:var(--bandink);font-weight:600}
+.nextplan{display:block;margin-top:10px;padding-top:10px;border-top:1px dashed var(--bandline);font:12px var(--mono);letter-spacing:.02em}
 .minis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:auto;padding-top:24px;border-top:1px solid var(--bandline)}
 .minis{margin-top:auto}
 .mini{padding:14px 12px 0 0}
@@ -109,6 +110,7 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .tree text{font:500 11px var(--mono);fill:var(--bandsoft);letter-spacing:.03em}
 .tree .hi{fill:var(--bandink);font-weight:600}
 .tree .sg{fill:var(--sig)}
+.tree .hit{fill:transparent;cursor:pointer;transition:fill var(--d1)}.tree .hit:hover,.tree .hit:active{fill:#ffffff12}
 .tree .halo{paint-order:stroke;stroke:var(--band2);stroke-width:5px;stroke-linejoin:round;fill:var(--bandink)}
 .tick-bar{transform-box:fill-box;transform-origin:50% 100%;animation:rise .7s var(--e-out) both}
 @keyframes rise{from{transform:scaleY(0)}}
@@ -133,6 +135,11 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .balline{stroke-dasharray:1;stroke-dashoffset:1;animation:draw 1.4s var(--e-out) .1s forwards}.balarea{animation:arrive 1s .5s var(--e-out) both}
 .balnow{animation:blink 2.4s ease-in-out infinite}
 @keyframes draw{to{stroke-dashoffset:0}}
+/* category tint on shop icons */
+.tx .ic.g-bills{color:var(--soft)}.tx .ic.g-everyday{color:var(--em);background:color-mix(in oklab,var(--em) 12%,var(--raise))}
+.tx .ic.g-wants{color:var(--go);background:color-mix(in oklab,var(--go) 12%,var(--raise))}.tx .ic.g-in{color:var(--good);background:color-mix(in oklab,var(--good) 12%,var(--raise))}
+.tx .ic.g-internal{color:var(--ag);background:color-mix(in oklab,var(--ag) 12%,var(--raise))}
+.qcats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}.qcats .chip{font:500 13px 'Schibsted Grotesk',sans-serif;min-height:40px}
 /* pocket rings */
 .pk-top{display:flex;justify-content:space-between;align-items:center;gap:10px}.ring{width:56px;height:56px;flex:none}
 .ring text{font:600 12px var(--mono);fill:var(--ink)}.ring-v{animation:ring 1.2s var(--e-out) .15s forwards}
@@ -1089,9 +1096,10 @@ function drawTree(d) {
   const plan = s.budget / n, maxDay = Math.max(0, ...[...byDay.values()].map((v) => v.everyday + v.wants));
   const cap = Math.max(plan * 3.2, s.perDay * 1.4, Math.min(maxDay, plan * 5 || maxDay), 1), h = (v) => Math.min(base - top, (v / cap) * (base - top));
   const step = (x1 - x0) / n, bw = Math.max(2, Math.min(9, step * 0.56));
-  let bars = '', todayX = null;
+  let bars = '', hits = '', todayX = null;
   days.forEach((day, i) => {
     const cx = x0 + step * (i + 0.5), x = (cx - bw / 2).toFixed(1), delay = `style="animation-delay:${(i * 14)}ms"`;
+    if (day <= tIso && byDay.has(day)) { const v = byDay.get(day); hits += `<rect class="hit" data-day="${day}" x="${(cx - step / 2).toFixed(1)}" y="${top - 6}" width="${step.toFixed(1)}" height="${base - top + 12}" rx="3"><title>${fmtDow(day)}: everyday ${R(v.everyday)}, wants ${R(v.wants)}. Tap to see.</title></rect>`; }
     if (day < tIso) {
       const v = byDay.get(day) || {everyday: 0, wants: 0}, he = h(v.everyday), hw = Math.min(h(v.everyday + v.wants), base - top) - he;
       if (he + hw < 1) bars += `<rect x="${x}" y="${base - 1.5}" width="${bw}" height="1.5" rx="1" fill="#ffffff2e"/>`;
@@ -1110,7 +1118,7 @@ function drawTree(d) {
     <g transform="translate(${x1},16)"><rect x="-168" y="-8" width="8" height="8" rx="1.5" fill="#e9ebe8" opacity=".86"/><text x="-156" y="0">everyday</text><rect x="-92" y="-8" width="8" height="8" rx="1.5" fill="var(--go)"/><text x="-80" y="0" text-anchor="start">wants</text><line x1="-36" x2="-24" y1="-4" y2="-4" stroke="#ffffff70" stroke-dasharray="3 2"/><text x="0" y="0" text-anchor="end">plan</text></g>
     <line x1="${x0}" x2="${x1}" y1="${base + .5}" y2="${base + .5}" stroke="#ffffff26"/>${weeks}
     ${plan > 0 ? `<line x1="${x0}" x2="${x1}" y1="${py}" y2="${py}" stroke="#ffffff55" stroke-dasharray="3 3"/>` : ''}
-    ${bars}
+    ${bars}${hits}
     ${todayX != null ? `<g class="cursor"><line x1="${tx}" x2="${tx}" y1="${top - 8}" y2="${base + 10}" stroke="var(--sig)" stroke-width="1.5"/><circle cx="${tx}" cy="${base + .5}" r="3.5" fill="var(--sig)"/></g>
       <text x="${tx}" y="${top - 14}" text-anchor="${anchor}" class="sg">TODAY · ${c.days === 1 ? '1 DAY' : c.days + ' DAYS'} TO PAYDAY</text>` : ''}
     <text x="${x0}" y="${base + 26}">${fmtDay(c.start).toUpperCase()}</text>
@@ -1138,7 +1146,7 @@ function renderMoves(d) {
   const last = d.tx.length ? d.tx[d.tx.length - 1].date : null;
   $('#movesNote').textContent = last ? `since your statement to ${fmtDay(last)}` : 'from your Capitec notifications';
   $('#moves').innerHTML = mv.slice(0, 6).map((t) => { const label = B.labelOf(t.merchant);
-    return `<button class="tx" data-tx="${esc(t.id)}"><span class="ic" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(when(t))} · ${esc(t.category)}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`; }).join('')
+    return `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(when(t))} · ${esc(t.category)}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`; }).join('')
     + (mv.length > 6 ? `<button class="link" data-view="activity" style="margin-top:6px">See all ${mv.length}</button>` : '');
   const out = mv.filter((t) => t.amount < 0).reduce((a, t) => a - t.amount, 0), inn = mv.filter((t) => t.amount > 0).reduce((a, t) => a + t.amount, 0);
   const facts = [`<span><small>Moved</small><b class="num">${out ? '−' + R(out, 2) : 'R0'}${inn ? ` · +${R(inn, 2)}` : ''}</b></span>`];
@@ -1156,8 +1164,17 @@ function renderToday(d) {
     $('#safeLabel').textContent = 'Saved in your pockets'; countUp($('#safe'), Math.round(d.stored));
     $('#safeSub').innerHTML = 'Set up your plan to see what is safe to spend each day. <button class="link" style="color:var(--bandink)" data-open="plan">Set up plan</button>';
   } else if (!c.planStarted) {
-    $('#safeLabel').textContent = 'Your plan starts on payday'; countUp($('#safe'), (S.plan.budget.everyday + S.plan.budget.wants) / Math.max(1, B.cycle(S.plan, B.D(S.plan.start)).length), (v) => R(v) + '<small>a day</small>');
-    $('#safeSub').innerHTML = `From <b>${fmtDow(S.plan.start)}</b> you'll have ${R(S.plan.budget.everyday + S.plan.budget.wants)} for everyday and wants each pay cycle.`;
+    // Before the plan starts: what your real balance allows per day until payday, after the debit orders still to come.
+    const next = (S.plan.budget.everyday + S.plan.budget.wants) / Math.max(1, B.cycle(S.plan, B.D(S.plan.start)).length);
+    if (d.fc) {
+      const owed = d.fc.bills.reduce((a, b) => a + b.amount, 0), free = d.fc.start - owed, per = Math.max(0, Math.floor(free / Math.max(1, c.days)));
+      $('#safeLabel').textContent = free > 0 ? 'Safe to spend a day until payday' : 'Your balance is already spoken for';
+      countUp($('#safe'), per, (v) => R(v) + '<small>a day</small>');
+      $('#safeSub').innerHTML = `<b>${R(d.fc.start)}</b> in your account${owed ? `, <b>${R(owed)}</b> of debit orders still to come` : ''}, ${c.days === 1 ? '1 day' : c.days + ' days'} to payday.<span class="nextplan">Then your plan: <b>${R(next)} a day</b> from ${fmtDow(S.plan.start)}</span>`;
+    } else {
+      $('#safeLabel').textContent = 'Your plan starts on payday'; countUp($('#safe'), next, (v) => R(v) + '<small>a day</small>');
+      $('#safeSub').innerHTML = `From <b>${fmtDow(S.plan.start)}</b> you'll have ${R(S.plan.budget.everyday + S.plan.budget.wants)} for everyday and wants each pay cycle.`;
+    }
   } else if (s.over) {
     $('#safeLabel').textContent = 'Over budget this pay cycle'; countUp($('#safe'), -s.left);
     $('#safeSub').innerHTML = `Everyday and wants have used ${R(s.spent.everyday + s.spent.wants)} of ${R(s.budget)}. Payday on <b>${payDate}</b> starts a fresh cycle.`;
@@ -1393,7 +1410,7 @@ function renderActivity(d) {
   for (const t of list.slice(0, S.txLimit)) {
     if (t.date !== lastDay) { const v = dayNet.get(t.date); html += `<div class="day"><span>${t.date === todayISO() ? 'Today' : fmtDow(t.date) + ' ' + t.date.slice(0, 4)}</span>${v ? `<span class="num">${R(v)} spent</span>` : ''}</div>`; lastDay = t.date; }
     const label = B.labelOf(t.merchant);
-    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
+    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
   }
   $('#txList').innerHTML = html || '<p class="soft" style="padding:20px 0">Nothing matches.</p>';
   $('#txMore').hidden = list.length <= S.txLimit; $('#txMore').textContent = `Show more (${list.length - S.txLimit} left)`;
@@ -1473,9 +1490,11 @@ function txSheet(id) {
   openSheet(`<h2 id="sheetTitle">${esc(B.labelOf(t.merchant))}</h2><p class="soft small" style="margin:4px 0 14px">${fmtDow(t.date)} · ${esc(t.description)}${t.live ? ' · <span class="tag live">Live</span> until your statement confirms it' : ''}</p>
     <div class="fig" style="font-size:34px;font-weight:700;margin-bottom:10px">${R(t.amount, 2)}</div>
     ${((past) => `<div class="moves-foot" style="margin:0 0 16px;padding:12px 0 0">${t.received ? `<span><small>Time</small><b>${new Date(t.received).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false})}</b></span>` : ''}${t.avail != null ? `<span><small>Balance after</small><b class="num">${R(t.avail, 2)}</b></span>` : ''}${past.length ? `<span><small>Visits on statements</small><b>${past.length}× · ${R(past.reduce((a, x) => a - x.amount, 0) / past.length)} avg</b></span>` : `<span><small>Visits on statements</small><b>First time</b></span>`}</div>`)(derive().tx.filter((x) => x.merchant === t.merchant && x.amount < 0 && x.id !== t.id))}
-    <label class="small soft" for="recat">Category</label><select id="recat" style="width:100%;margin:6px 0 10px">${B.CATEGORIES.map((c) => `<option${c === t.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
+    <p class="small soft" style="margin-bottom:6px">Tap a category</p><div class="qcats">${(() => { const use = new Map(); for (const x of S.tx) use.set(x.category, (use.get(x.category) || 0) + 1); return [...use].filter(([c]) => B.CATEGORIES.includes(c) && c !== 'Pocket transfer').sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c]) => `<button class="chip qc" data-qc="${esc(c)}" aria-pressed="${c === t.category}">${esc(c)}</button>`).join(''); })()}</div>
+    <label class="small soft" for="recat">Or pick any category</label><select id="recat" style="width:100%;margin:6px 0 10px">${B.CATEGORIES.map((c) => `<option${c === t.category ? ' selected' : ''}>${c}</option>`).join('')}</select>
     <p class="soft small" style="margin-bottom:14px">Baobab uses this for every payment to ${esc(B.labelOf(t.merchant))}, now and later.</p>
     <div style="display:flex;gap:10px"><button class="btn" id="saveCat" style="flex:1">Save</button>${t.live ? '<button class="btn danger" id="delLive">Remove</button>' : ''}</div>`, () => {
+    for (const b of $$('.qc')) b.onclick = () => { $('#recat').value = b.dataset.qc; $('#saveCat').click(); };
     $('#saveCat').onclick = () => { S.overrides[t.merchant] = $('#recat').value; persist(['overrides']); closeSheet(); render(); toast(`${B.labelOf(t.merchant)} is now ${S.overrides[t.merchant]}`); };
     if ($('#delLive')) $('#delLive').onclick = async () => { await Store.deleteLive([t.liveId]); S.live = S.live.filter((l) => l.id !== t.liveId); closeSheet(); render(); toast('Removed'); };
   });
@@ -1514,8 +1533,10 @@ function setSync(t) { $('#syncRail').innerHTML = esc(t); $('#syncTop').textConte
 function renderSync() {
   const d = S.tx.length ? S.tx[S.tx.length - 1].date : null, lastLive = S.live.length ? S.live[S.live.length - 1] : null;
   const where = S.sample ? 'Sample data' : CLOUD ? 'Synced with Google' : 'This browser';
-  $('#syncRail').innerHTML = `<span><span class="dot ${lastLive ? 'on' : ''}"></span>${esc(where)}</span>${d ? `<span>Statement to ${fmtDay(d)}</span>` : ''}${lastLive ? `<span>Live: ${esc(B.labelOf(B.merchantOf(((lastLive.raw && B.readNotification('', lastLive.raw)) || lastLive).merchant)))} ${lastLive.received ? ago(lastLive.received) : fmtDay(lastLive.date)}</span>` : ''}`;
-  $('#syncTop').innerHTML = `<span class="dot ${lastLive ? 'on' : ''}"></span>${d ? 'To ' + fmtDay(lastLive ? lastLive.date : d) : esc(where)}`;
+  const lt = lastLive && lastLive.received ? new Date(lastLive.received) : null, hm = lt ? lt.toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false}) : '';
+  const liveWhen = lt ? (lastLive.date === todayISO() ? hm : fmtDay(lastLive.date) + ' ' + hm) : '';
+  $('#syncRail').innerHTML = `<span><span class="dot ${lastLive ? 'on' : ''}"></span>${esc(where)}</span>${d ? `<span>Confirmed by statement to ${fmtDay(d)}</span>` : ''}${lastLive ? `<span>Live: ${esc(B.labelOf(B.merchantOf(((lastLive.raw && B.readNotification('', lastLive.raw)) || lastLive).merchant)))} ${lastLive.received ? ago(lastLive.received) : fmtDay(lastLive.date)}</span>` : ''}`;
+  $('#syncTop').innerHTML = `<span class="dot ${lastLive ? 'on' : ''}"></span>${lastLive && liveWhen ? 'Live ' + esc(liveWhen) + (d ? ' · Stmt ' + fmtDay(d) : '') : d ? 'Statement to ' + fmtDay(d) : esc(where)}`;
 }
 
 /* ---------- events ---------- */
