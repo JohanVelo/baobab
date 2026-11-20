@@ -125,6 +125,13 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .tx:active,.rowbtn:active,.tick:active{transform:scale(.985)}.tx,.rowbtn{transition:background var(--d1),transform var(--d1)}
 @media(hover:hover){.card{transition:box-shadow var(--d2)}.card:hover{box-shadow:var(--shadow),0 0 0 1px color-mix(in oklab,var(--ink) 8%,transparent)}}
 @media(display-mode:standalone){body{overscroll-behavior-y:none}}
+/* calendar heatmap */
+.heat{display:grid;grid-template-columns:repeat(26,minmax(0,1fr));grid-template-rows:repeat(7,auto);gap:3px}
+.hc{aspect-ratio:1;width:100%;min-width:0;padding:0;border:0;border-radius:3px;background:color-mix(in oklab,var(--ink) 6%,transparent);transition:transform var(--d1) var(--e-out),box-shadow var(--d1)}
+.legend .hc{width:10px;height:10px}
+.hc.l1{background:color-mix(in oklab,var(--go) 22%,transparent)}.hc.l2{background:color-mix(in oklab,var(--go) 42%,transparent)}.hc.l3{background:color-mix(in oklab,var(--go) 64%,transparent)}.hc.l4{background:color-mix(in oklab,var(--go) 84%,transparent)}.hc.l5{background:var(--go)}
+.hc.now{box-shadow:0 0 0 1.5px var(--ink)}.hc:hover{transform:scale(1.35);z-index:1}
+#heat .hc{animation:arrive .5s var(--e-out) both}
 /* week */
 .wk{display:grid;gap:10px}.wk-row{display:grid;grid-template-columns:7.5em minmax(0,1fr) 5.5em;gap:12px;align-items:center;font-size:14px}.wk-row b{text-align:right;font-weight:700}
 /* latest money moves */
@@ -187,7 +194,7 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .search input,.search select,.sheet select,.field{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--line);background:var(--raise);font-size:16px;transition:border-color var(--d1)}
 .search input:focus,.field:focus{border-color:var(--soft);outline:none}
 .search input{flex:1 1 100%}.search select{flex:1 1 40%}
-.day{font:500 12px var(--mono);letter-spacing:.03em;color:var(--soft);padding:18px 0 6px;position:sticky;top:0;background:var(--bg);z-index:1}
+.day{display:flex;justify-content:space-between;gap:8px;font:500 12px var(--mono);letter-spacing:.03em;color:var(--soft);padding:18px 0 6px;position:sticky;top:0;background:var(--bg);z-index:1}
 .tx{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;border:0;background:none;padding:10px 0;border-top:1px solid var(--line);text-align:left;transition:background var(--d1)}
 .tx:hover{background:color-mix(in oklab,var(--ink) 3%,transparent)}
 .tx .ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--raise);box-shadow:var(--shadow);font:600 12px var(--mono);color:var(--ink);text-transform:uppercase}
@@ -300,6 +307,7 @@ tr.stopped td{color:var(--soft)}
     <section class="view" id="v-spending" hidden>
       <div class="head"><h1 id="spendTitle">Spending</h1></div>
       <div class="chips" id="monthChips" role="group" aria-label="Month"></div>
+      <div class="card"><div class="card-h"><h3>Every day, last 26 weeks</h3><span class="legend" id="heatLegend"></span></div><div class="heat" id="heat" role="img" aria-label="Daily spending calendar"></div><p class="soft small" style="margin-top:10px">Everyday and wants spending per day. Tap a day to see what you bought.</p></div>
       <div class="cols">
         <div class="card"><div class="card-h"><h3>Spending against salary</h3><span class="legend"><span><i style="background:var(--ink)"></i>Spent</span><span><i style="background:var(--ag);border-radius:50%"></i>Salary</span></span></div><div class="chart" id="monthsChart" style="min-height:240px"></div><p class="soft small" style="margin-top:8px">Tap a bar to open that month. Transfers between your pockets are left out.</p></div>
         <div class="card"><div class="card-h"><h3 id="catHead">Where it went</h3><span class="soft small">against your 3-month average</span></div><div id="cats"></div></div>
@@ -319,7 +327,7 @@ tr.stopped td{color:var(--soft)}
 
     <section class="view" id="v-activity" hidden>
       <div class="head"><h1>Activity</h1><span class="soft" id="txCount"></span></div>
-      <div class="search"><input id="q" type="search" placeholder="Search shops" aria-label="Search shops"><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
+      <div class="search"><input id="q" type="search" placeholder="Search shops or amounts (612, >500)" aria-label="Search shops or amounts"><button class="chip" id="dayChip" hidden aria-label="Clear day filter"></button><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
       <div id="txList"></div>
       <button class="btn ghost" id="txMore" hidden style="justify-self:center">Show more</button>
     </section>
@@ -1201,7 +1209,22 @@ function drawForecast(fc) {
 }
 
 /* ---------- spending ---------- */
+function drawHeat(d) {
+  // A calendar of daily spending: darker means more. Weeks run left to right, Monday at the top.
+  const by = new Map(); for (const t of d.all) if (t.amount < 0 && ['everyday', 'wants'].includes(B.groupOf(t.category))) by.set(t.date, (by.get(t.date) || 0) - t.amount);
+  const end = B.D(todayISO()), dow = (end.getUTCDay() + 6) % 7, start = new Date(end.getTime() - (25 * 7 + dow) * 864e5);
+  const vals = [...by.values()].sort((a, b) => a - b), q = (p) => vals.length ? vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] : 1;
+  const steps = [q(.25), q(.5), q(.75), q(.92)], lvl = (v) => (!v ? 0 : 1 + steps.filter((x) => v > x).length);
+  let html = '';
+  for (let t = start.getTime(); t <= end.getTime(); t += 864e5) {
+    const ds = new Date(t).toISOString().slice(0, 10), v = by.get(ds) || 0, wk = Math.floor((t - start.getTime()) / 6048e5) + 1, row = (new Date(t).getUTCDay() + 6) % 7 + 1;
+    html += `<button class="hc l${lvl(v)}${ds === todayISO() ? ' now' : ''}" style="grid-column:${wk};grid-row:${row}" data-day="${ds}" title="${fmtDow(ds)}: ${v ? R(v) : 'nothing'}" aria-label="${fmtDow(ds)}, ${v ? R(v) : 'nothing spent'}"></button>`;
+  }
+  $('#heat').innerHTML = html;
+  $('#heatLegend').innerHTML = `less ${[0, 1, 2, 3, 4, 5].map((i) => `<i class="hc l${i}" style="display:inline-block;margin:0 1px;vertical-align:-1px"></i>`).join('')} more`;
+}
 function renderSpending(d) {
+  drawHeat(d);
   const months = d.months; S.month ||= d.cur;
   $('#monthChips').innerHTML = months.slice().reverse().map((m) => `<button class="chip" aria-pressed="${m.month === S.month}" data-month="${m.month}">${MON[+m.month.slice(5) - 1]}${m.month.slice(0, 4) !== d.cur.slice(0, 4) ? ' ' + m.month.slice(0, 4) : ''}</button>`).join('');
   const sel = months.find((m) => m.month === S.month) || months[months.length - 1];
@@ -1278,12 +1301,17 @@ function renderActivity(d) {
   fc.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option${c === cv ? ' selected' : ''}>${esc(c)}</option>`).join('');
   fmo.innerHTML = '<option value="">All months</option>' + months.map((m) => `<option value="${m}"${m === mv ? ' selected' : ''}>${longMonth(m)} ${m.slice(0, 4)}</option>`).join('');
   const q = $('#q').value.trim().toLowerCase();
-  const list = d.all.filter((t) => (!fc.value || t.category === fc.value) && (!fmo.value || t.date.startsWith(fmo.value)) && (!q || t.description.toLowerCase().includes(q) || B.labelOf(t.merchant).toLowerCase().includes(q))).slice().reverse();
+  // Search shops, or an amount ("612", "r612", ">500").
+  const num = q.replace(/^r\s?/, '').replace(',', '.'), gt = /^>\s?\d/.test(num) ? +num.replace(/[>\s]/g, '') : null;
+  const hit = (t) => !q || (gt != null ? Math.abs(t.amount) > gt : /^\d+(\.\d+)?$/.test(num) ? String(Math.abs(t.amount)).startsWith(num) || Math.abs(t.amount).toFixed(2).startsWith(num) : t.description.toLowerCase().includes(q) || B.labelOf(t.merchant).toLowerCase().includes(q));
+  const list = d.all.filter((t) => (!fc.value || t.category === fc.value) && (!fmo.value || t.date.startsWith(fmo.value)) && (!S.day || t.date === S.day) && hit(t)).slice().reverse();
+  const dayNet = new Map(); for (const t of list) dayNet.set(t.date, (dayNet.get(t.date) || 0) + (t.amount < 0 && B.groupOf(t.category) !== 'internal' ? -t.amount : 0));
+  $('#dayChip').hidden = !S.day; if (S.day) $('#dayChip').innerHTML = `${fmtDow(S.day)} <span aria-hidden="true">✕</span>`;
   $('#txCount').textContent = `${list.length} transactions`;
   let html = '', lastDay = '';
   S.txLimit ||= 80;
   for (const t of list.slice(0, S.txLimit)) {
-    if (t.date !== lastDay) { html += `<div class="day">${fmtDow(t.date)} ${t.date.slice(0, 4)}</div>`; lastDay = t.date; }
+    if (t.date !== lastDay) { const v = dayNet.get(t.date); html += `<div class="day"><span>${t.date === todayISO() ? 'Today' : fmtDow(t.date) + ' ' + t.date.slice(0, 4)}</span>${v ? `<span class="num">${R(v)} spent</span>` : ''}</div>`; lastDay = t.date; }
     const label = B.labelOf(t.merchant);
     html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
   }
@@ -1403,7 +1431,9 @@ function renderSync() {
 
 /* ---------- events ---------- */
 document.addEventListener('click', (e) => {
-  const tab = e.target.closest('[data-view]'); if (tab) return go(tab.dataset.view);
+  const hd = e.target.closest('[data-day]'); if (hd) { S.day = hd.dataset.day; S.txLimit = 80; $('#fMonth').value = ''; return go('activity'); }
+  if (e.target.closest('#dayChip')) { S.day = null; return renderActivity(); }
+  const tab = e.target.closest('[data-view]'); if (tab) { if (tab.dataset.view === 'activity') S.day = null; return go(tab.dataset.view); }
   if (e.target.closest('[data-open=data]')) return dataSheet();
   if (e.target.closest('[data-open=plan]')) return planSheet();
   if (e.target.closest('#trySample')) return useSample();
