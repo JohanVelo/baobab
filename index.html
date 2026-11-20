@@ -1870,6 +1870,10 @@ async function dataSheet() {
   const liveUrl = S.liveUrl || '';
   openSheet(`<h2 id="sheetTitle" style="margin-bottom:6px">Sync</h2>
     <p class="soft small" style="margin-bottom:16px">${CLOUD ? `Your data lives in a Google Sheet in your Drive. Only you can open this app.` : 'This copy keeps data in this browser only. Set up the Google version for automatic sync.'}</p>
+    ${REMOTE ? `<div class="note" style="margin:0 0 18px;display:block"><h3>Notifications</h3>
+    <p class="soft small" id="pushNote" style="margin:6px 0 10px">Checking…</p>
+    <div style="display:flex;gap:8px"><button class="btn" id="pushOn" style="flex:1" hidden>Turn on notifications</button><button class="btn ghost" id="pushTest" style="flex:1" hidden>Send a test</button></div>
+    <button class="link" id="pushOff" hidden style="margin-top:8px">Turn off on this device</button></div>` : ''}
     <h3>Statements: automatic from Gmail</h3>
     ${CLOUD ? (() => { const l = S.lastStatement; return `<div class="note" style="margin:8px 0 12px"><p>${l ? `<b>Last read from Gmail:</b> ${esc(l.name)}${l.from ? `, ${esc(fmtDay(l.from))} to ${esc(fmtDay(l.to))}` : ''}. ${l.added ? l.added + ' new rows' : 'Nothing new in it'}, ${esc(ago(l.at))}.` : '<b>No statement read from Gmail yet.</b>'}</p><button class="btn ghost" id="sheetCheck">Check Gmail now</button></div>`; })() : ''}
     <ol class="how" style="margin:8px 0 14px"><li>In the Capitec app, open your main account and tap <b>Email statement</b>. Pick the dates since your last statement (or longer, overlaps are fine) and send it to <b>${esc(S.meta.me || 'your Gmail')}</b>.</li><li>Open Baobab. It finds the statement in Gmail, reads it and adds anything new. Live entries it covers are replaced.</li></ol>
@@ -1914,6 +1918,7 @@ async function dataSheet() {
     if ($('#liveUrl')) $('#liveUrl').onchange = (e) => { S.liveUrl = e.target.value.trim(); Store.saveState({liveUrl: S.liveUrl}).catch(() => {}); };
     if ($('#copyToday')) $('#copyToday').onclick = async () => { const link = `${String(info.url).split('?')[0]}?t=${encodeURIComponent(info.token)}&q=today`; try { await navigator.clipboard.writeText(link); toast('Link copied. Paste it in Shortcuts.'); } catch { toast('Copy failed. Try again.'); } };
     if ($('#copyApp')) $('#copyApp').onclick = async () => { try { await navigator.clipboard.writeText(info.appLink); toast('Link copied. Open it on your other device.'); } catch { toast('Long-press Open the Baobab app to copy it.'); } };
+    if ($('#pushNote')) pushPanel();
     if ($('#unlink')) $('#unlink').onclick = (e) => { if (e.target.dataset.sure) { localStorage.removeItem(RKEY); localStorage.removeItem(SNAP); location.reload(); } else { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to disconnect'; } };
     if ($('#newKey')) $('#newKey').onclick = async (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = 'Tap again: every device signs out'; return; } try { const i = await gs('api_newAppKey'); if (REMOTE) { const h = new URLSearchParams(i.appLink.split('#')[1]); localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); } toast('Done. Open the new link on your other devices.'); closeSheet(); } catch (er) { toast(er.message); } };
     if ($('#erase')) $('#erase').onclick = (e) => { if (e.target.dataset.sure) { local.set({}); location.reload(); } else { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to erase everything'; } };
@@ -1992,6 +1997,41 @@ function planSheet() {
   });
 }
 
+/* ---------- notifications (Web Push) ----------
+ * The server sends an empty push; the service worker then asks your Baobab script what to show, using the link
+ * saved below. Nothing about your money passes through Apple or Microsoft. */
+const PUSH_OK = !!REMOTE && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const deviceName = () => (/iPhone/.test(navigator.userAgent) ? 'iPhone' : /iPad/.test(navigator.userAgent) ? 'iPad' : /Mac/.test(navigator.userAgent) ? 'Mac' : /Windows/.test(navigator.userAgent) ? 'Laptop' : 'Device');
+const b64u8 = (s) => { const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - s.length % 4) % 4)); return Uint8Array.from(b, (c) => c.charCodeAt(0)); };
+async function savePushLink() { try { if (REMOTE && 'caches' in window) await (await caches.open('baobab-push')).put('cfg', new Response(JSON.stringify({u: REMOTE.u, k: REMOTE.k}))); } catch {} }
+async function pushSub() { try { const reg = await navigator.serviceWorker.getRegistration(); return reg ? await reg.pushManager.getSubscription() : null; } catch { return null; } }
+async function pushPanel() {
+  const note = $('#pushNote'), on = $('#pushOn'), test = $('#pushTest'), off = $('#pushOff'); if (!note) return;
+  const ios = /iPhone|iPad/.test(navigator.userAgent), home = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!PUSH_OK) { note.textContent = ios && !home ? 'On iPhone, notifications work in the Home Screen app: open Baobab from its icon, then turn them on here.' : "This browser can't show Baobab notifications."; return; }
+  const sub = await pushSub(), live = !!sub && Notification.permission === 'granted';
+  note.innerHTML = live ? '<b>On for this device.</b> A bill the day before it goes off, money running low, payday moves, and every spend over R500.'
+    : Notification.permission === 'denied' ? `Notifications are blocked for Baobab. ${ios ? 'Turn them on in iPhone Settings → Notifications → Baobab.' : 'Allow them in your browser’s site settings.'}`
+    : 'Get a heads-up for a bill the day before it goes off, money running low, payday moves, and every spend over R500.';
+  on.hidden = live || Notification.permission === 'denied'; test.hidden = !live; off.hidden = !live;
+  on.onclick = async () => {
+    // The permission prompt must come straight from the tap (iPhone rule), before anything else waits.
+    const perm = await Notification.requestPermission(); if (perm !== 'granted') return pushPanel();
+    on.disabled = true; on.textContent = 'Turning on…';
+    try {
+      await savePushLink();
+      const reg = (await navigator.serviceWorker.getRegistration()) || await navigator.serviceWorker.register('sw.js');
+      if (!reg.active) await Promise.race([navigator.serviceWorker.ready, new Promise((ok) => setTimeout(ok, 8000))]);
+      const key = await gs('api_pushKey');
+      const s = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly: true, applicationServerKey: b64u8(key)});
+      await gs('api_pushSubscribe', s.endpoint, deviceName()); toast('Notifications are on. Tap Send a test.');
+    } catch (e) { toast(e.message || 'Could not turn on notifications.'); }
+    on.disabled = false; on.textContent = 'Turn on notifications'; pushPanel();
+  };
+  test.onclick = async () => { test.disabled = true; try { const n = await gs('api_pushTest'); toast(n ? `Test sent to ${n} device${n > 1 ? 's' : ''}` : 'No device is signed up yet.'); } catch (e) { toast(e.message); } test.disabled = false; };
+  off.onclick = async () => { const s = await pushSub(); if (s) { await gs('api_pushUnsubscribe', s.endpoint).catch(() => {}); await s.unsubscribe().catch(() => {}); } toast('Notifications off on this device'); pushPanel(); };
+}
+if (REMOTE) savePushLink();
 /* ---------- sync status ---------- */
 function setSync(t) { $('#syncRail').innerHTML = esc(t); $('#syncTop').textContent = t; }
 function renderSync() {
