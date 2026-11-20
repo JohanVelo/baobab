@@ -209,6 +209,7 @@ tr.stopped td{color:var(--soft)}
 .how li::marker{font:600 13px var(--mono);color:var(--soft)}
 .code{display:flex;gap:8px;align-items:center;background:var(--surface);border-radius:12px;padding:8px 8px 8px 12px;font:12px var(--mono);overflow-wrap:anywhere}
 .code span{flex:1}
+.connect{width:min(420px,100%);margin:4px 0 8px}
 .empty{text-align:center;padding:56px 20px;display:grid;gap:14px;justify-items:center}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;transition:all var(--d2) var(--e-out);z-index:30;pointer-events:none;max-width:90vw}
 .toast.on{opacity:1;transform:translate(-50%,0)}
@@ -260,6 +261,9 @@ tr.stopped td{color:var(--soft)}
         <svg width="72" height="72" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="18" fill="#101316"/><rect x="14" y="40" width="7" height="10" rx="2" fill="#e9ebe8"/><rect x="25" y="31" width="7" height="19" rx="2" fill="#e9ebe8"/><rect x="36" y="22" width="7" height="28" rx="2" fill="#e9ebe8"/><circle cx="48" cy="16" r="5" fill="#ff6a2b"/></svg>
         <h1>Add your first statement</h1>
         <p class="soft" style="max-width:46ch" id="emptyText">In the Capitec app, email yourself a statement. Baobab finds it in Gmail and reads it for you. Or add a PDF here.</p>
+        <div class="connect" id="connect" hidden><p class="small soft" style="max-width:44ch;margin:0 auto 12px">On iPhone the Home Screen app keeps its own storage. Connect it once: in Baobab's Google version tap <b>Sync → Copy link for another device</b>, then come back here.</p>
+          <button class="btn" id="pasteLink" style="width:100%">Paste my Baobab link</button>
+          <input class="field" id="linkIn" placeholder="…or paste the link here" style="width:100%;margin-top:8px" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center"><button class="btn" id="checkGmail" hidden>Check Gmail now</button><button class="btn" data-open="data" id="addStmt">Add a statement</button><button class="btn ghost" id="trySample">Try with sample data</button></div>
       </div>
     </section>
@@ -1002,7 +1006,7 @@ function renderNotice() {
   if (S.busy) items.push(`<div class="note"><span class="spin" aria-hidden="true"></span><p>Reading ${S.busyName ? esc(S.busyName) : 'your statement'} from Gmail…</p></div>`);
   for (const f of S.failed || []) items.push(`<div class="note bad"><p><b>Couldn't read ${esc(f.name)}</b>${f.date ? ' from ' + esc(fmtDay(f.date.slice(0, 10))) : ''}. ${esc(f.reason)}</p><button class="btn ghost" data-retry="${esc(f.messageId)}">Try again</button><button class="btn ghost" data-dismiss="${esc(f.messageId)}">Hide</button></div>`);
   el.innerHTML = items.join(''); el.hidden = !items.length;
-  if (S.view === 'empty' && $('#emptyText')) $('#emptyText').textContent = S.busy ? 'Found a statement in Gmail. Reading it now, this takes a few seconds…' : `In the Capitec app, open your main account, tap Email statement and send it to ${S.meta.me || 'your Gmail'}. Baobab picks it up from Gmail by itself. Or add a PDF here.`;
+  if (S.view === 'empty' && $('#emptyText') && $('#connect').hidden) $('#emptyText').textContent = S.busy ? 'Found a statement in Gmail. Reading it now, this takes a few seconds…' : `In the Capitec app, open your main account, tap Email statement and send it to ${S.meta.me || 'your Gmail'}. Baobab picks it up from Gmail by itself. Or add a PDF here.`;
 }
 function after() { if (S.view === 'empty' || S.view === 'loading') go('today'); else render(); }
 
@@ -1412,6 +1416,18 @@ $('#q').addEventListener('input', () => { S.txLimit = 80; renderActivity(); }); 
 $('#txMore').addEventListener('click', () => { S.txLimit += 200; renderActivity(); });
 window.addEventListener('hashchange', () => { const v = location.hash.slice(1); if (['today', 'spending', 'pockets', 'activity'].includes(v) && v !== S.view) go(v); });
 let rz; new ResizeObserver(() => { clearTimeout(rz); rz = setTimeout(() => { if (['today', 'spending', 'pockets'].includes(S.view)) render(); }, 120); }).observe($('main'));
+function connectWith(text) {
+  // A Baobab link (…github.io/baobab/#u=…&k=…) pasted into the installed app connects it to your Google account.
+  try { const h = new URLSearchParams(String(text).trim().split('#')[1] || '');
+    if (!h.get('k') || !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(h.get('u') || '')) return toast("That isn't a Baobab link. Copy it from Sync in the Google version.");
+    localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); toast('Connected'); setTimeout(() => location.replace(location.pathname + '#today'), 400);
+  } catch { toast("That isn't a Baobab link."); }
+}
+if (!GAS && !REMOTE && location.protocol === 'https:') {
+  $('#connect').hidden = false; $('#addStmt').classList.add('ghost'); $('#v-empty h1').textContent = 'Connect Baobab'; $('#emptyText').textContent = 'Connect this device to your Baobab data, or try it with sample data.';
+  $('#pasteLink').onclick = async () => { try { connectWith(await navigator.clipboard.readText()); } catch { $('#linkIn').focus(); toast('Paste the link into the box below.'); } };
+  $('#linkIn').addEventListener('input', (e) => { if (/#u=.*&k=/.test(e.target.value)) connectWith(e.target.value); });
+}
 if (!GAS && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD && Date.now() - (S.loadedAt || 0) > 60000) boot(true); });
 
