@@ -180,6 +180,12 @@ html.locked body{overflow:hidden}
 .qf{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:-4px 0 12px;padding-bottom:2px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}.qf .chip:last-child{margin-right:28px}
 .act-head{display:block!important}.act-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.act-row .btn{gap:6px}.qf::-webkit-scrollbar{display:none}.qf .chip{flex:none}
 html{scrollbar-gutter:stable}
+.add-guide{position:fixed;inset:0;z-index:80;background:color-mix(in oklab,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:grid;place-items:center;padding:20px;animation:palIn .25s var(--e-out)}
+.ag-box{width:min(420px,100%);background:var(--raise);border:1px solid var(--line);border-radius:24px;padding:24px;box-shadow:0 30px 80px -24px #000;text-align:center}
+.ag-icon{width:84px;height:84px;border-radius:22.5%;box-shadow:0 14px 30px -12px #000;margin-bottom:12px}.ag-box h2{font:800 24px/1.15 var(--disp);text-transform:uppercase;letter-spacing:.02em;margin:0 0 14px}
+.ag-box ol{text-align:left;margin:0 0 12px;padding-left:1.3em;line-height:1.5}.ag-box li{margin:8px 0}.ag-share{display:inline-grid;place-items:center;vertical-align:-4px;color:var(--sig)}
+.ag-arrow{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom));transform:translateX(-50%);font:900 40px var(--disp);color:var(--sig);animation:agB 1.2s var(--e-out) infinite}
+@keyframes agB{50%{transform:translate(-50%,10px)}}
 .busy-pill{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));z-index:35;display:flex;align-items:center;gap:10px;max-width:min(92vw,420px);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;
   background:color-mix(in oklab,var(--raise) 88%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid var(--line);box-shadow:0 12px 30px -12px #0008;
   transform:translate(-50%,-140%);opacity:0;pointer-events:none;transition:transform var(--d2) var(--e-out),opacity var(--d2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1331,9 +1337,13 @@ function setTheme(v) { if (v === 'auto') document.documentElement.removeAttribut
 try { setTheme(localStorage.getItem('baobab:theme') || 'auto'); } catch {}
 const GOOGLE_CONNECT = 'https:\/\/script.google.com/macros/s/AKfycbyOO6vMCE5YpZSyHjvsbG0jeDGwnsiNWn7ej9PQqfCPk4exwZhhpbDxpdJApfOQ27okqg/exec?connect=1';
 const RKEY = 'baobab:remote', GAS = !!(window.google && google.script && google.script.run);
+// "Add to Home Screen" link (?add=1): Safari keeps the full address so the new icon starts connected. Opened from that
+// icon later, the address is only used if this app isn't connected yet (a newer key or look is never overwritten).
+const ADDING = /[?&]add=1/.test(location.search), STANDALONE = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 const REMOTE = GAS ? null : (() => { try {
   const h = new URLSearchParams(location.hash.slice(1));
-  if (h.get('k') && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(h.get('u') || '')) { localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')})); history.replaceState(null, '', location.pathname + '#today'); }
+  if (h.get('k') && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(h.get('u') || '') && !(ADDING && STANDALONE && localStorage.getItem(RKEY))) localStorage.setItem(RKEY, JSON.stringify({u: h.get('u'), k: h.get('k')}));
+  if (h.get('k') && !(ADDING && !STANDALONE)) history.replaceState(null, '', location.pathname + '#today');
   return JSON.parse(localStorage.getItem(RKEY) || 'null'); } catch { return null; } })();
 const CLOUD = GAS || !!REMOTE;
 const gs = GAS ? (fn, ...a) => new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler((e) => no(new Error(e && e.message || String(e))))[fn](...a))
@@ -1500,7 +1510,7 @@ function show(view) {
   for (const v of $$('.view')) v.hidden = v.id !== 'v-' + view;
   for (const t of $$('.tab[data-view]')) { if (t.dataset.view === view) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current'); }
   movePill();
-  if (!['empty', 'loading'].includes(view) && location.hash !== '#' + view) try { history.replaceState(null, '', '#' + view); } catch {}
+  if (!['empty', 'loading'].includes(view) && location.hash !== '#' + view && !(ADDING && !STANDALONE)) try { history.replaceState(null, '', '#' + view); } catch {}
   render(true); renderNotice(); window.scrollTo({top: 0});
   if (first && !reduce) { const v = $('#v-' + view); v.classList.add('enter'); setTimeout(() => v.classList.remove('enter'), 1400); }
 }
@@ -2490,9 +2500,9 @@ function applyLook(l, png) {
     renameIn(document.body, name);
     if (!renamer) { renamer = new MutationObserver((ms) => { const to = lookName(); if (to === 'Jaeger') return; for (const m of ms) for (const n of m.addedNodes) if (n.nodeType === 1) renameIn(n, to); else if (n.nodeType === 3 && n.nodeValue.includes('Jaeger')) n.nodeValue = n.nodeValue.replace(/Jaeger/g, to); }); renamer.observe(document.body, {childList: true, subtree: true}); }
   }
-  if (name !== 'Jaeger' || customIcon(l)) try {
+  if (name !== 'Jaeger' || customIcon(l) || (ADDING && !STANDALONE)) try {
     const icons = png && png.i512 ? [{src: png.i512, sizes: '512x512', type: 'image/png', purpose: 'any'}, {src: png.i512, sizes: '512x512', type: 'image/png', purpose: 'maskable'}] : [{src: new URL('icon-512.png', location.href).href, sizes: '512x512', type: 'image/png'}];
-    const here = location.origin + location.pathname;
+    const here = ADDING && !STANDALONE ? location.href : location.origin + location.pathname;
     setHeadLink('manifest', URL.createObjectURL(new Blob([JSON.stringify({name, short_name: name.slice(0, 12), start_url: here, scope: here, display: 'standalone', background_color: '#08090b', theme_color: '#08090b', icons})], {type: 'application/manifest+json'})));
   } catch {}
   applyCards(l.off || []);
@@ -2518,7 +2528,23 @@ async function useLook(l, save) {
 }
 try { const c = readLook(); if (c.look && Object.keys(c.look).length) applyLook(c.look, c.png || null); } catch {}
 // A Home Screen link (#look=…) carries just your name, icon and colour into this browser, so Add to Home Screen uses them.
-try { const m = location.hash.match(/(?:^#|&)look=([^&]+)/); if (m) { const l = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); history.replaceState(null, '', location.pathname); if (l && typeof l === 'object') useLook(l, false).then(() => toast('Your look is set. Now tap Share → Add to Home Screen.')); } } catch {}
+try { const m = (location.hash.match(/(?:^#|&)look=([^&]+)/) || location.search.match(/[?&]look=([^&]+)/));
+  if (m) { const l = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); const mine = readLook().look;
+    if (!(ADDING && !STANDALONE)) history.replaceState(null, '', location.pathname + '#today');
+    if (l && typeof l === 'object' && !(STANDALONE && mine && Object.keys(mine).length)) useLook(l, false).then(() => { if (!ADDING) toast('Your look is set. Now tap Share → Add to Home Screen.'); }); } } catch {}
+if (ADDING && !STANDALONE) addGuide();
+
+// In Safari, opened from "Update Home Screen icon": a big, plain guide to the one thing left to do.
+function addGuide() {
+  const el = document.createElement('div'); el.className = 'add-guide'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Add to Home Screen');
+  el.innerHTML = `<div class="ag-box"><img class="ag-icon" alt=""><h2>Add <span class="ag-name"></span> to your Home Screen</h2>
+    <ol><li>Tap <b>Share</b> <span class="ag-share" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg></span> (on newer iPhones it's in the <b>•••</b> menu)</li>
+    <li>Tap <b>Add to Home Screen</b>, then <b>Add</b></li><li>Delete the old icon: press and hold it → <b>Remove App</b></li></ol>
+    <p class="soft small">The new icon opens already connected. Nothing to paste.</p></div><div class="ag-arrow" aria-hidden="true">↓</div>`;
+  document.body.append(el);
+  const fill = () => { const c = readLook(); el.querySelector('.ag-name').textContent = lookName(c.look || {}); const i = el.querySelector('.ag-icon'); i.src = (c.png && c.png.i128) || 'icon-192.png'; };
+  fill(); setTimeout(fill, 1200);
+}
 
 // The shared editor (used by Make it yours and by the welcome steps).
 function lookEditor(draft, withCards) {
@@ -2562,15 +2588,16 @@ function lookSheet() {
   openSheet(`<h2 id="sheetTitle">Make it yours</h2><p class="soft small" style="margin:4px 0 14px">Your name, icon and colour, and what Today shows. Every device you connect follows.</p>
     ${lookEditor(draft, true)}
     <div class="wz-foot"><button class="btn" id="lkSave">Save</button></div>
-    <div class="note" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:8px"><p style="margin:0"><b>iPhone Home Screen</b><br><span class="soft small">The icon and name there are set when you add the app. To update them: save here, then</span></p>
-      <ol class="small soft" style="margin:0;padding-left:1.2em"><li>tap <b>Copy Home Screen link</b> below,</li><li>open <b>Safari</b>, paste it in the address bar and go,</li><li>tap Share → <b>Add to Home Screen</b> → Add,</li><li>delete the old icon (press and hold it → Remove App).</li></ol>
-      <button class="btn ghost sm" id="lkLink" type="button">Copy Home Screen link</button></div>
+    ${REMOTE ? `<div class="note" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:8px"><p style="margin:0"><b>iPhone Home Screen icon</b><br><span class="soft small">iPhone sets the icon and name when an app is added. One tap opens Safari ready to add your new one, already connected.</span></p>
+      <button class="btn ghost sm" id="lkLink" type="button">Update Home Screen icon</button></div>` : ''}
     <p style="margin-top:10px"><button class="link" id="lkReset">Back to the original Jaeger look</button></p>`, () => {
     bindLookEditor(draft);
     $('#lkSave').onclick = async (ev) => { const btn = ev && ev.currentTarget; if (btn && btn.dataset.busy) return; if (btn) { btn.dataset.busy = 1; setTimeout(() => { delete btn.dataset.busy; }, 1500); } $('#lkSave').disabled = true; await useLook(draft, true); toast('Saved'); closeSheet(); };
-    $('#lkLink').onclick = async () => {
-      const l = {...LOOK}; const link = location.origin + location.pathname + '#look=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(l)))));
-      try { await navigator.clipboard.writeText(link); toast('Copied. Now open Safari and paste it.'); } catch { prompt('Copy this link:', link); }
+    if ($('#lkLink')) $('#lkLink').onclick = async () => {
+      const link = location.origin + location.pathname + '?add=1#u=' + encodeURIComponent(REMOTE.u) + '&k=' + encodeURIComponent(REMOTE.k) + '&look=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(draft)))));
+      setTimeout(() => useLook(draft, true), 1500);  // and save what's on screen here too
+      // From the Home Screen app, iPhone opens Safari itself with x-safari-; elsewhere a normal new tab.
+      if (STANDALONE && /iPhone|iPad|iPod/.test(navigator.userAgent)) { location.href = 'x-safari-' + link; setTimeout(() => window.open(link, '_blank'), 900); } else window.open(link, '_blank');
     };
     $('#lkReset').onclick = async () => { await useLook({}, true); toast('Back to Jaeger'); closeSheet(); };
   });
