@@ -177,7 +177,8 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 #lock[hidden]{display:none}#lock .lk{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px}#lock .lk img{width:72px;height:72px;border-radius:18px;box-shadow:0 20px 50px -20px #000}
 #lock .lk b{font:700 22px "Schibsted Grotesk",sans-serif}#lock .lk p{margin:0;color:var(--soft);font-size:14px;min-height:20px}
 html.locked body{overflow:hidden}
-.qf{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:-4px 0 12px;padding-bottom:2px}.qf::-webkit-scrollbar{display:none}.qf .chip{flex:none}
+.qf{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;margin:-4px 0 12px;padding-bottom:2px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}.qf .chip:last-child{margin-right:28px}
+.act-head{display:block!important}.act-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.act-row .btn{gap:6px}.qf::-webkit-scrollbar{display:none}.qf .chip{flex:none}
 html{scrollbar-gutter:stable}
 .busy-pill{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));z-index:35;display:flex;align-items:center;gap:10px;max-width:min(92vw,420px);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;
   background:color-mix(in oklab,var(--raise) 88%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border:1px solid var(--line);box-shadow:0 12px 30px -12px #0008;
@@ -519,7 +520,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     </section>
 
     <section class="view" id="v-activity" hidden>
-      <div class="head"><div><h1>Activity</h1><span class="soft" id="txCount"></span></div><button class="btn ghost sm" id="exportBtn" title="Download what's listed as a CSV file">Export</button></div>
+      <div class="head act-head"><div class="act-row"><h1>Activity</h1><button class="btn ghost sm" id="exportBtn" title="Download what's listed as a CSV file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export</button></div><span class="soft" id="txCount"></span></div>
       <div class="search"><input id="q" type="search" placeholder="Search shops, amounts (>500) or #tags" aria-label="Search shops or amounts"><button class="chip" id="dayChip" hidden aria-label="Clear day filter"></button><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
       <div class="chips qf" id="quickF" role="group" aria-label="Quick filters"></div>
       <div id="txList"></div>
@@ -1355,6 +1356,7 @@ const Store = CLOUD ? {
   dismiss: (id) => gs('api_dismissFailed', id),
   deleteLive: (ids) => gs('api_deleteLive', ids),
   liveInfo: () => gs('api_liveInfo'),
+  rev: () => gs('api_rev'),
 } : {
   async load() { const d = local.get(); return {tx: d.tx || [], live: d.live || [], state: d.state || {}, me: '', pending: 0}; },
   async saveState(p) { const d = local.get(); d.state = {...(d.state || {}), ...p}; if (!local.set(d)) throw new Error("This browser won't keep data."); },
@@ -2358,7 +2360,9 @@ function renderSync() {
   const lt = lastLive && lastLive.received ? new Date(lastLive.received) : null, hm = lt ? lt.toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false}) : '';
   const liveWhen = lt ? (lastLive.date === todayISO() ? hm : fmtDay(lastLive.date) + ' ' + hm) : '';
   $('#syncRail').innerHTML = `<span><span class="dot ${lastLive ? 'on' : ''}"></span>${esc(where)}</span>${d ? `<span>Confirmed by statement to ${fmtDay(d)}</span>` : ''}${lastLive ? `<span>Live: ${esc(B.labelOf(B.merchantOf(((lastLive.raw && B.readNotification('', lastLive.raw)) || lastLive).merchant)))} ${lastLive.received ? ago(lastLive.received) : fmtDay(lastLive.date)}</span>` : ''}`;
-  $('#syncTop').innerHTML = `<span class="dot ${lastLive ? 'on' : ''}"></span>${lastLive && liveWhen ? 'Live ' + esc(liveWhen) + (d ? '<span class="st-stmt"> · Stmt ' + fmtDay(d) + '</span>' : '') : d ? 'Statement to ' + fmtDay(d) : esc(where)}`;
+  const fresh = CLOUD && !S.sample && S.loadedAt && Date.now() - S.loadedAt < 120000, upd = S.loadedAt ? new Date(S.loadedAt).toLocaleTimeString('en-ZA', {hour: '2-digit', minute: '2-digit', hour12: false}) : '';
+  $('#syncTop').innerHTML = `<span class="dot ${fresh ? 'on' : ''}"></span>${CLOUD && !S.sample && upd ? (fresh ? 'Live' : 'Updated ' + upd) + (d ? '<span class="st-stmt"> · Stmt ' + fmtDay(d) + '</span>' : '') : d ? 'Statement to ' + fmtDay(d) : esc(where)}`;
+  $('#syncTop').title = lastLive && liveWhen ? 'Last live payment ' + liveWhen : '';
 }
 
 /* ---------- events ---------- */
@@ -2513,6 +2517,8 @@ async function useLook(l, save) {
   if (save && !S.sample) Store.saveState({look: LOOK}).catch((e) => toast(e.message));
 }
 try { const c = readLook(); if (c.look && Object.keys(c.look).length) applyLook(c.look, c.png || null); } catch {}
+// A Home Screen link (#look=…) carries just your name, icon and colour into this browser, so Add to Home Screen uses them.
+try { const m = location.hash.match(/(?:^#|&)look=([^&]+)/); if (m) { const l = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); history.replaceState(null, '', location.pathname); if (l && typeof l === 'object') useLook(l, false).then(() => toast('Your look is set. Now tap Share → Add to Home Screen.')); } } catch {}
 
 // The shared editor (used by Make it yours and by the welcome steps).
 function lookEditor(draft, withCards) {
@@ -2556,10 +2562,16 @@ function lookSheet() {
   openSheet(`<h2 id="sheetTitle">Make it yours</h2><p class="soft small" style="margin:4px 0 14px">Your name, icon and colour, and what Today shows. Every device you connect follows.</p>
     ${lookEditor(draft, true)}
     <div class="wz-foot"><button class="btn" id="lkSave">Save</button></div>
-    <p class="soft small" style="margin-top:14px"><b>iPhone Home Screen:</b> the icon there is fixed when you add it. To update it, delete the icon, open your Jaeger link in Safari and tap Share → <b>Add to Home Screen</b> again.</p>
+    <div class="note" style="margin-top:16px;flex-direction:column;align-items:stretch;gap:8px"><p style="margin:0"><b>iPhone Home Screen</b><br><span class="soft small">The icon and name there are set when you add the app. To update them: save here, then</span></p>
+      <ol class="small soft" style="margin:0;padding-left:1.2em"><li>tap <b>Copy Home Screen link</b> below,</li><li>open <b>Safari</b>, paste it in the address bar and go,</li><li>tap Share → <b>Add to Home Screen</b> → Add,</li><li>delete the old icon (press and hold it → Remove App).</li></ol>
+      <button class="btn ghost sm" id="lkLink" type="button">Copy Home Screen link</button></div>
     <p style="margin-top:10px"><button class="link" id="lkReset">Back to the original Jaeger look</button></p>`, () => {
     bindLookEditor(draft);
     $('#lkSave').onclick = async (ev) => { const btn = ev && ev.currentTarget; if (btn && btn.dataset.busy) return; if (btn) { btn.dataset.busy = 1; setTimeout(() => { delete btn.dataset.busy; }, 1500); } $('#lkSave').disabled = true; await useLook(draft, true); toast('Saved'); closeSheet(); };
+    $('#lkLink').onclick = async () => {
+      const l = {...LOOK}; const link = location.origin + location.pathname + '#look=' + encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(l)))));
+      try { await navigator.clipboard.writeText(link); toast('Copied. Now open Safari and paste it.'); } catch { prompt('Copy this link:', link); }
+    };
     $('#lkReset').onclick = async () => { await useLook({}, true); toast('Back to Jaeger'); closeSheet(); };
   });
 }
@@ -2812,7 +2824,7 @@ if (!GAS && 'serviceWorker' in navigator && location.protocol === 'https:') {
     ind.classList.remove('busy', 'ready'); ind.style.transform = ''; ind.style.opacity = 0;
   });
 })();
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && CLOUD && Date.now() - (S.loadedAt || 0) > 60000) boot(true); });
+
 
 // Switching tabs shows a screen you've already seen at once, unless something changed since it was drawn: any
 // other call to render() means something did, so every saved screen is thrown away and drawn again when opened.
@@ -2848,7 +2860,7 @@ function apply(r, keepMine) {
   S.live = r.live || []; const st = r.state || {};
   // While you're editing (a sheet is open, or you changed something in the last 20 s) your plan on screen wins.
   if (!keepMine) { S.plan = st.plan || S.plan; S.overrides = st.overrides || {}; S.ticks = st.ticks || []; S.cash = Array.isArray(st.cash) ? st.cash : []; S.owed = Array.isArray(st.owed) ? st.owed : []; remember(['plan', 'overrides', 'ticks', 'cash', 'owed']); } S.worth = Array.isArray(st.worth) ? st.worth : (S.worth || []); S.liveUrl = st.liveUrl || ''; S.failed = (st.failed || []).filter((f) => f.messageId); S.lastStatement = st.lastStatement || null;
-  S.meta = {pending: r.pending || 0, me: r.me}; S.welcomed = !!st.welcomed;
+  S.meta = {pending: r.pending || 0, me: r.me}; S.welcomed = !!st.welcomed; if (r.rev != null) S.rev = String(r.rev);
   if (st.look && typeof st.look === 'object' && JSON.stringify(st.look) !== JSON.stringify(LOOK)) useLook(st.look, false).catch(() => {});
 }
 async function boot(quiet) {
@@ -2859,22 +2871,44 @@ async function boot(quiet) {
     const r = await Store.load();
     if (!r || !Array.isArray(r.tx)) throw new Error('the server sent nothing back');
     S.loadError = '';
-    const was = quiet && JSON.stringify([S.tx.length, S.live.map((l) => l.id), S.plan, S.ticks, S.overrides]);
+    const was = quiet && JSON.stringify([S.tx.length, S.live.map((l) => l.id), S.plan, S.ticks, S.overrides, S.cash, S.owed]), seen = new Set(S.live.map((l) => l.id));
     const t0 = S.started || 0; apply(r, quiet && ($('#sheet').classList.contains('on') || (S.dirtyAt || 0) > t0 - 20000)); S.loadedAt = Date.now();
     // Opening shows the saved copy at once; when Google answers, redraw only if something changed (no flicker).
-    const changed = quiet && was !== JSON.stringify([S.tx.length, S.live.map((l) => l.id), S.plan, S.ticks, S.overrides]);
+    const changed = quiet && was !== JSON.stringify([S.tx.length, S.live.map((l) => l.id), S.plan, S.ticks, S.overrides, S.cash, S.owed]);
+    // A payment that just happened: say so, so you see it arrive.
+    const fresh = quiet && seen.size ? S.live.filter((l) => !seen.has(l.id)) : [];
+    if (fresh.length) { const l = fresh[fresh.length - 1], m = B.labelOf(B.merchantOf(((l.raw && B.readNotification('', l.raw)) || l).merchant)); setTimeout(() => toast(fresh.length > 1 ? `${fresh.length} new payments` : `${l.direction === 'in' ? '+' : ''}${R(+l.amount, 2)} ${l.direction === 'in' ? 'from' : 'at'} ${m}`), 300); }
     if (!quiet) { const v = location.hash.slice(1); go(['today', 'spending', 'pockets', 'activity'].includes(v) ? v : 'today'); }
     else if (changed || S.view === 'empty' || S.view === 'loading') after();
     else { renderSync(); try { logWorthNow(derive()); } catch {} }
     renderNotice();
     if (CLOUD && !S.sample && !S.welcomed && !S.tx.length && !S.plan.take_home && !$('#sheet').classList.contains('on')) welcomeSheet();
-    autoImport();
+    autoImport(); livePoll();
   } catch (e) {
     // Keep what's on screen if we already had data (a network blip on returning to the app).
     S.loadError = /authori[sz]|permission|log ?in/i.test(e.message) ? 'Your Google sign-in expired. Close Jaeger and open it again.' : `Couldn't reach your Google account: ${e.message}`;
     setSync('Offline'); if (!S.tx.length && !S.live.length) go(S.sample ? 'today' : 'empty'); else renderNotice();
   }
 }
+// Live: while the app is on screen, a tiny check every 15 seconds asks whether anything changed (a tap at a shop,
+// an edit on another device). Only then does it load everything. Coming back to the app checks at once.
+let pollT = null, polling = false;
+async function livePoll(now) {
+  clearTimeout(pollT); pollT = null;
+  if (!CLOUD || S.sample || document.visibilityState !== 'visible') return;
+  if (now && !polling) {
+    polling = true;
+    try {
+      if (S.noRev) { if (Date.now() - (S.loadedAt || 0) > 60000) await boot(true); }
+      else { const rev = String(await Store.rev()); if (S.rev == null) S.rev = rev; else if (rev !== S.rev) { await boot(true); S.rev = rev; } }
+    } catch (e) { if (/Unknown action/.test(e.message)) S.noRev = true; }
+    polling = false; renderSync();
+  }
+  pollT = setTimeout(() => livePoll(true), 15000);
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') livePoll(true); else { clearTimeout(pollT); pollT = null; } });
+addEventListener('focus', () => { if (!pollT || Date.now() - (S.loadedAt || 0) > 10000) livePoll(true); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', (e) => { if (e.data === 'jaeger:refresh') livePoll(true); });
 boot();
 }
 </script>

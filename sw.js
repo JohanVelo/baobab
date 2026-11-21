@@ -1,4 +1,4 @@
-const C = 'baobab-' + 'aac6e5e7c6';
+const C = 'baobab-' + 'db9a91b882';
 self.addEventListener('install', (e) => { self.skipWaiting(); e.waitUntil(caches.open(C).then((c) => c.addAll(['./', 'manifest.webmanifest', 'icon-192.png', 'fonts/schibsted-grotesk-latin-400-normal.woff2', 'fonts/schibsted-grotesk-latin-500-normal.woff2', 'fonts/schibsted-grotesk-latin-600-normal.woff2', 'fonts/schibsted-grotesk-latin-700-normal.woff2', 'fonts/schibsted-grotesk-latin-800-normal.woff2', 'fonts/geist-mono-latin-400-normal.woff2', 'fonts/geist-mono-latin-500-normal.woff2', 'fonts/geist-mono-latin-600-normal.woff2', 'fonts/big-shoulders-display-latin-700-normal.woff2', 'fonts/big-shoulders-display-latin-800-normal.woff2', 'fonts/big-shoulders-display-latin-900-normal.woff2']))); });
 self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== C && k !== 'baobab-push').map((k) => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', (e) => {
@@ -16,6 +16,8 @@ self.addEventListener('push', (e) => e.waitUntil((async () => {
     if (cfg && sub) { const j = await (await fetch(cfg.u, {method: 'POST', body: JSON.stringify({key: cfg.k, api: 'api_pushInbox', args: [sub.endpoint]})})).json(); if (j.ok && j.result && j.result[0]) m = j.result[0]; }
   } catch (err) {}
   m = m || {title: 'Jaeger', body: 'Something changed in your money. Tap to see.', tag: 'baobab'};
+  // An open app refreshes at once.
+  try { for (const w of await clients.matchAll({type: 'window', includeUncontrolled: true})) w.postMessage('jaeger:refresh'); } catch (err) {}
   await self.registration.showNotification(m.title, {body: m.body, tag: (m.tag || 'baobab') + '-' + Date.now(), icon: 'icon-192.png', badge: 'icon-192.png', data: {url: './#today'}});
 })()));
 self.addEventListener('notificationclick', (e) => { e.notification.close(); e.waitUntil(clients.matchAll({type: 'window', includeUncontrolled: true}).then((ws) => { const w = ws.find((x) => 'focus' in x); return w ? w.focus() : clients.openWindow((e.notification.data && e.notification.data.url) || './#today'); })); });
