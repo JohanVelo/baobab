@@ -1059,7 +1059,7 @@ tr.stopped td{color:var(--soft)}
     const steadyDay = Math.floor(budget / Math.max(1, c.length) * (wk > 1 ? wOf(today) * c.length / Array.from({length: c.length}, (_, i) => wOf(new Date(D(c.start).getTime() + i * 864e5))).reduce((a, b) => a + b, 0) : 1));
     const elapsed = Math.max(0, c.length - c.days), ahead = Math.round(budget * elapsed / Math.max(1, c.length) - spent.everyday - spent.wants);
     const steady = plan.daily === 'steady';
-    return {cycle: c, spent, budget, left: Math.round(left), perDay: steady ? Math.max(0, Math.min(steadyDay, Math.floor(left / days) * 3)) : flexible, days, over: left < 0, ahead, mode: steady ? 'steady' : 'rollover'};
+    return {cycle: c, spent, budget, left: Math.round(left), perDay: steady ? Math.max(0, Math.min(steadyDay, Math.floor(left / days) * 3)) : flexible, days, over: budget > 0 && left < 0, unset: !(budget > 0), ahead, mode: steady ? 'steady' : 'rollover'};  // no budget yet: never "over"
   }
 
   // Main account balance from today to payday: known bills on their dates plus your usual daily spending.
@@ -1530,9 +1530,9 @@ function renderMoves(d) {
 }
 function renderToday(d) {
   const s = d.safe, c = s.cycle, payDate = fmtDow(c.end);
-  if (!S.plan.take_home) {
+  if (!S.plan.take_home || !((S.plan.budget.everyday || 0) + (S.plan.budget.wants || 0))) {
     $('#safeLabel').textContent = 'Saved in your pockets'; countUp($('#safe'), Math.round(d.stored));
-    $('#safeSub').innerHTML = 'Set up your plan to see what is safe to spend each day. <button class="link" style="color:var(--bandink)" data-open="plan">Set up plan</button>';
+    $('#safeSub').innerHTML = `${S.plan.take_home ? 'Set your Everyday and Wants budget' : 'Set up your plan'} to see what is safe to spend each day. <button class="link" style="color:var(--bandink)" data-open="plan">${S.plan.take_home ? 'Set budget' : 'Set up plan'}</button>`;
   } else if (!c.planStarted) {
     // Before the plan starts: what your real balance allows per day until payday, after the debit orders still to come.
     const next = (S.plan.budget.everyday + S.plan.budget.wants) / Math.max(1, B.cycle(S.plan, B.D(S.plan.start)).length);
@@ -2453,7 +2453,15 @@ function welcomeSheet() {
         <label class="small soft" for="wzTh" style="display:block;margin-bottom:4px">Take-home pay a month (after tax)</label><input class="field" id="wzTh" inputmode="decimal" style="width:100%" placeholder="R0" value="${P.take_home || ''}">
         <label class="small soft" for="wzPd" style="display:block;margin:14px 0 4px">Payday (day of the month)</label><input class="field" id="wzPd" inputmode="numeric" style="width:100%" value="${P.payday || 25}">
         <label class="small soft" for="wzEm" style="display:block;margin:14px 0 4px">Who pays you, as it shows on your bank statement (optional)</label><input class="field" id="wzEm" style="width:100%" placeholder="e.g. ACME PTY LTD" value="${esc(P.employer || '')}" autocapitalize="characters">
-        ${foot('Next')}`, () => {}],
+        <p class="sec-l">Your monthly budget</p><p class="soft small" style="margin:-4px 0 10px" id="wzBudNote">Filled in from your pay (40% bills, 25% everyday, 15% wants, 20% savings). Change anything.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${[['bills', 'Bills', 'Rent, debit orders, phone'], ['everyday', 'Everyday', 'Groceries, fuel, transport'], ['wants', 'Wants', 'Eating out, fun, shopping'], ['savings', 'Savings', 'Into your pockets']].map(([k, n, sub]) => `<label class="small soft" style="display:block">${n}<input class="field" data-bud="${k}" inputmode="decimal" style="width:100%;margin-top:4px" value="${P.budget[k] || ''}" placeholder="R0"><span style="display:block;font-size:12px;margin-top:3px">${sub}</span></label>`).join('')}</div>
+        ${foot('Next')}`, () => {
+          const typed = new Set(), fill = () => { const th = parseFloat(String($('#wzTh').value).replace(/[^\d.]/g, '')) || 0; const r = (x) => Math.round(th * x / 100) * 100;
+            const sug = {bills: r(.4), everyday: r(.25), wants: r(.15)}; sug.savings = Math.max(0, Math.round(th) - sug.bills - sug.everyday - sug.wants);
+            for (const el of $$('[data-bud]')) if (!typed.has(el.dataset.bud) && th) el.value = sug[el.dataset.bud]; };
+          for (const el of $$('[data-bud]')) el.addEventListener('input', () => typed.add(el.dataset.bud));
+          if (!$$('[data-bud]').some((el) => el.value)) fill(); $('#wzTh').addEventListener('input', fill);
+        }],
       () => [`${dots()}<h2 id="sheetTitle">Your pockets</h2><p class="soft small" style="margin:4px 0 14px">Pockets are your savings buckets. Keep the ones you'll use. Add your own goals any time under Pockets → <b>New goal</b>.</p>
         <div>${P.pockets.map((p) => `<label class="lk-row"><span>${esc(p.name)}<small>${esc(p.job || '')}</small></span><input type="checkbox" class="tg" data-pk="${esc(p.key)}"${keep.has(p.key) ? ' checked' : ''}></label>`).join('')}</div>${foot('Next')}`,
         () => { for (const c of $$('[data-pk]')) c.onchange = () => { c.checked ? keep.add(c.dataset.pk) : keep.delete(c.dataset.pk); }; }],
@@ -2477,6 +2485,7 @@ function welcomeSheet() {
   };
   const collect = () => {
     const num = (id) => { const v = parseFloat(String($(id)?.value || '').replace(/[^\d.]/g, '')); return isFinite(v) ? v : 0; };
+    for (const el of $$('[data-bud]')) P.budget[el.dataset.bud] = parseFloat(String(el.value).replace(/[^\d.]/g, '')) || 0;
     if ($('#wzTh')) { P.take_home = num('#wzTh'); P.payday = Math.min(31, Math.max(1, Math.round(num('#wzPd')) || 25)); P.employer = ($('#wzEm').value || '').trim(); }
   };
   show();
