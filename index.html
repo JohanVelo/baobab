@@ -173,6 +173,23 @@ main{padding:22px clamp(16px,3vw,40px) 56px 4px;max-width:1180px;width:100%}
 .cal-d:active{transform:scale(.93)}.cal-d i{font:600 9.5px var(--mono);font-style:normal;color:var(--soft)}.cal-d.now{border-color:var(--ink)}.cal-d.sel{border-color:var(--sig)}
 .cal-d.due{background:color-mix(in oklab,var(--warn) 18%,transparent)}.cal-d.due i{color:var(--warn)}.cal-d.paid{background:color-mix(in oklab,var(--good) 14%,transparent)}.cal-d.paid i{color:var(--good)}
 .cal-d.pay{background:color-mix(in oklab,var(--ag) 24%,transparent)}.cal-d.pay i{color:var(--ag)}.cal-e{aspect-ratio:1/1.05}.cal-day{margin-top:10px;font-size:14px}.cal-day:empty{display:none}
+.ctrend{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;height:120px;align-items:end;margin:4px 0 0}
+.ctrend .cb{display:flex;flex-direction:column;justify-content:flex-end;height:100%;gap:6px}
+.ctrend .cb i{display:block;min-height:3px;border-radius:6px 6px 2px 2px;background:color-mix(in oklab,var(--em) 55%,var(--raise));transform-origin:bottom;animation:barUp .5s var(--e-out) both}
+.ctrend .cb.now i{background:var(--em)}.ctrend .cb.pre i{opacity:.25}
+.ctrend .cb small{font-size:11px;color:var(--soft);text-align:center;line-height:12px}
+.ctrend em{position:absolute;left:0;right:0;border-top:1.5px dashed var(--soft);opacity:.7;pointer-events:none}
+@keyframes barUp{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@media (prefers-reduced-motion:reduce){.ctrend .cb i{animation:none}}
+#selBar{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(560px,calc(100% - 20px));z-index:15;padding:12px 14px;border-radius:18px;border:1px solid var(--line);background:color-mix(in oklab,var(--raise) 90%,transparent);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);box-shadow:0 18px 40px -16px #000a;animation:palIn .22s var(--e-out)}
+#selBar .sb-top{display:flex;gap:10px;align-items:baseline;margin-bottom:10px}#selBar .sb-top .link{margin-left:auto}
+#selBar .sb-acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#selBar .sb-acts .btn{margin-left:auto}
+#selBtn{margin-left:auto}
+#selBar .chip[disabled]{opacity:.4;pointer-events:none}
+body:has(#selBar) .fab{opacity:0;pointer-events:none;transform:scale(.8)}
+@media (min-width:900px){#selBar{bottom:24px}}
+.tx.picked{background:color-mix(in oklab,var(--em) 14%,var(--raise));box-shadow:inset 3px 0 0 var(--em)}
+.tx[aria-pressed] .ic{transition:transform var(--d1)}.tx.picked .ic{transform:scale(.9)}
 #lock{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:color-mix(in oklab,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(28px) saturate(1.2);backdrop-filter:blur(28px) saturate(1.2)}
 #lock[hidden]{display:none}#lock .lk{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px}#lock .lk img{width:72px;height:72px;border-radius:18px;box-shadow:0 20px 50px -20px #000}
 #lock .lk b{font:700 22px "Schibsted Grotesk",sans-serif}#lock .lk p{margin:0;color:var(--soft);font-size:14px;min-height:20px}
@@ -398,6 +415,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
 @media(max-width:960px){.fab{display:grid}.addtab,.kbd-hint{display:none!important}}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;font-weight:500;opacity:0;transition:all var(--d2) var(--e-out);z-index:30;pointer-events:none;max-width:90vw}
 .toast.on{opacity:1;transform:translate(-50%,0)}
+.toast.act:not(.on){pointer-events:none}body:has(#selBar) .toast{bottom:calc(140px + env(safe-area-inset-bottom))}@media(max-width:960px){body:has(#selBar) .toast{bottom:calc(196px + env(safe-area-inset-bottom))}}
 .notice{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}.notice[hidden]{display:none}
 .note{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 14px;border-radius:var(--r);background:var(--raise);box-shadow:var(--shadow);font-size:15px;border-left:3px solid var(--soft)}
 .note p{flex:1 1 220px;margin:0}.note.bad{border-left-color:var(--bad)}
@@ -529,7 +547,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     </section>
 
     <section class="view" id="v-activity" hidden>
-      <div class="head act-head"><div class="act-row"><h1>Activity</h1><button class="btn ghost sm" id="exportBtn" title="Download what's listed as a CSV file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export</button></div><span class="soft" id="txCount"></span></div>
+      <div class="head act-head"><div class="act-row"><h1>Activity</h1><button class="btn ghost sm" id="selBtn" aria-pressed="false" title="Pick several and change them together">Select</button><button class="btn ghost sm" id="exportBtn" title="Download what's listed as a CSV file"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export</button></div><span class="soft" id="txCount"></span></div>
       <div class="search"><input id="q" type="search" placeholder="Search shops, amounts (>500) or #tags" aria-label="Search shops or amounts"><button class="chip" id="dayChip" hidden aria-label="Clear day filter"></button><select id="fCat" aria-label="Category"></select><select id="fMonth" aria-label="Month"></select></div>
       <div class="chips qf" id="quickF" role="group" aria-label="Quick filters"></div>
       <div id="txList"></div>
@@ -1303,7 +1321,25 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
       open: open.map((o) => ({...o, age: age(o)})).sort((a, b) => b.age - a.age), stale: open.filter((o) => o.dir === 'lent' && age(o) >= 30)};
   }
 
-  const api = {limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+  // One category over the last n months: totals, the usual (average of full months) and this month so far.
+  function categoryTrend(tx, cat, today, n = 6) {
+    const end = new Date(today), months = [];
+    for (let i = n - 1; i >= 0; i--) { const d = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() - i, 1)); months.push(d.toISOString().slice(0, 7)); }
+    const tot = new Map(months.map((m) => [m, 0])), first = tx.reduce((a, t) => (t.date < a ? t.date : a), '9999');
+    for (const t of tx) { if (t.category !== cat || t.oneoff || t.amount >= 0) continue; const m = t.date.slice(0, 7); if (tot.has(m)) tot.set(m, tot.get(m) - t.amount); }
+    const cur = months[n - 1], rows = months.map((m) => ({month: m, spent: Math.round(tot.get(m)), partial: m === cur, before: m < first.slice(0, 7)}));
+    const full = rows.filter((r) => !r.partial && !r.before), avg = full.length ? Math.round(full.reduce((a, r) => a + r.spent, 0) / full.length) : 0;
+    const now = rows[n - 1].spent, dayFrac = end.getUTCDate() / new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth() + 1, 0)).getUTCDate();
+    return {rows, avg, now, pace: avg ? Math.round(now / dayFrac) : 0, max: Math.max(1, ...rows.map((r) => r.spent), avg)};
+  }
+  // Starter limits from your own history (like Actual's "average" template): the categories that
+  // usually get away from you, capped at what you normally spend, rounded to R50.
+  function suggestLimits(tx, plan, max = 4) {
+    const have = plan.limits || {}, rows = categoryAverages(tx).rows;
+    return rows.filter((r) => (r.group === 'wants' || r.group === 'everyday') && r.category !== 'Cash withdrawal' && !(+have[r.category] > 0) && r.avg >= 100)
+      .slice(0, max).map((r) => ({cat: r.category, limit: Math.max(50, Math.round(r.avg / 50) * 50), avg: r.avg}));
+  }
+  const api = {categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
     nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
     toTransactions, merge, monthName, MONTHS, iso, D,
     cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
@@ -1398,8 +1434,8 @@ function derive() {
   for (const p of S.plan.pockets) if (p.color && !COL[p.key]) COL[p.key] = p.color;
   const t = today(); B.setNames(S.plan.names || {}); const W = S.plan.wallet || {}; B.setCashWallet(W.on);
   const sp = S.plan.splits || {};
-  const oo = S.plan.oneoff || {}, mark = (x) => (oo[x.id] ? {...x, oneoff: true} : x), rules = S.plan.rules || [];
-  const tx = B.refunds(B.applyRules(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)), rules, S.overrides)).map(mark).map((x) => (sp[x.id] != null && x.amount < 0 ? {...x, full: x.amount, amount: -sp[x.id], split: true} : x)).map((x) => ((S.plan.tags || {})[x.id] ? {...x, tag: S.plan.tags[x.id]} : x));
+  const oo = S.plan.oneoff || {}, tg = S.plan.tags || {}, mark = (x) => (oo[x.id] || tg[x.id] ? {...x, ...(oo[x.id] ? {oneoff: true} : {}), ...(tg[x.id] ? {tag: tg[x.id]} : {})} : x), rules = S.plan.rules || [];
+  const tx = B.refunds(B.applyRules(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)), rules, S.overrides)).map(mark).map((x) => (sp[x.id] != null && x.amount < 0 ? {...x, full: x.amount, amount: -sp[x.id], split: true} : x));
   const liveTx = B.applyRules(B.liveToTx(S.live, S.overrides, tx), rules, S.overrides).map(mark), rc = B.reconcile(tx, liveTx), manual = B.manualTx(S.cash).map(mark), all = B.allTx(tx, [...rc.open, ...manual]);
   const safe = B.safeToSpend(all, S.plan, t), fc = B.forecast(tx, rc.open, S.plan, t);
   const d = {t, tx, all, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
@@ -1507,6 +1543,7 @@ function go(view) {
   show(view);
 }
 function show(view) {
+  if (view !== 'activity' && S.sel) { S.sel = null; $('#selBar')?.remove(); }
   if (!S.tx.length && !S.live.length) view = 'empty';
   const first = S.view === 'loading' && view !== 'empty';
   S.view = view;
@@ -2069,9 +2106,11 @@ function renderActivity(d) {
   for (const t of list.slice(0, S.txLimit)) {
     if (t.date !== lastDay) { const v = dayNet.get(t.date); html += `<div class="day"><span>${t.date === todayISO() ? 'Today' : fmtDow(t.date) + ' ' + t.date.slice(0, 4)}</span>${v ? `<span class="num">${R(v)} spent</span>` : ''}</div>`; lastDay = t.date; }
     const label = B.labelOf(t.merchant);
-    html += `<button class="tx" data-tx="${esc(t.id)}"><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}${t.refund ? ' <span class="tag good">Refund</span>' : ''}${t.split ? ' <span class="tag">Your share</span>' : ''}${t.manual ? ` <span class="tag">${t.via === 'cash' ? 'Cash' : 'Added'}</span>` : ''}${t.oneoff ? ' <span class="tag oneoff">One-off</span>' : ''}${t.tag ? ` <span class="tag live">#${esc(t.tag)}</span>` : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
+    const pk = S.sel && S.sel.has(t.id);
+    html += `<button class="tx${pk ? ' picked' : ''}" data-tx="${esc(t.id)}"${S.sel ? ` aria-pressed="${!!pk}"` : ''}><span class="ic g-${t.amount > 0 ? 'in' : B.groupOf(t.category)}" aria-hidden="true">${esc(label.slice(0, 2))}</span><span><b>${esc(label)}</b><span>${esc(t.category)}${t.live ? ' <span class="tag live">Live</span>' : ''}${t.refund ? ' <span class="tag good">Refund</span>' : ''}${t.split ? ' <span class="tag">Your share</span>' : ''}${t.manual ? ` <span class="tag">${t.via === 'cash' ? 'Cash' : 'Added'}</span>` : ''}${t.oneoff ? ' <span class="tag oneoff">One-off</span>' : ''}${t.tag ? ` <span class="tag live">#${esc(t.tag)}</span>` : ''}</span></span><span class="num ${t.amount > 0 ? 'in' : ''}" style="font-weight:600">${t.amount > 0 ? '+' : ''}${R(t.amount, 2)}</span></button>`;
   }
   $('#txList').innerHTML = html || '<p class="soft" style="padding:20px 0">Nothing matches.</p>';
+  S.listed = list; $('#selBtn').setAttribute('aria-pressed', !!S.sel); $('#selBtn').textContent = S.sel ? 'Done' : 'Select'; $('#selBtn').onclick = () => { S.sel = S.sel ? null : new Set(); renderActivity(); }; selBar();
   $('#txMore').hidden = list.length <= S.txLimit; $('#txMore').textContent = `Show more (${list.length - S.txLimit} left)`;
 }
 
@@ -2161,7 +2200,11 @@ async function dataSheet() {
 function catSheet(cat) {
   const d = derive(), tx = d.all.filter((t) => t.category === cat && t.date.startsWith(S.month)).slice().reverse();
   const by = new Map(); for (const t of tx) by.set(t.merchant, (by.get(t.merchant) || 0) - t.amount);
+  const tr = B.categoryTrend(d.all, cat, B.D(todayISO()), 6), lim = +(S.plan.limits || {})[cat] || 0, isOut = !['income', 'internal'].includes(B.groupOf(cat));
+  const trend = isOut && tr.rows.some((r) => r.spent) ? `<div class="ctrend" role="img" aria-label="${esc(cat)}, last 6 months. Usually ${R(tr.avg)} a month.">${tr.rows.map((r) => `<span class="cb${r.partial ? ' now' : ''}${r.before ? ' pre' : ''}"><i style="height:calc((100% - 18px) * ${(r.spent / tr.max).toFixed(3)})"></i><small>${longMonth(r.month).slice(0, 3)}</small></span>`).join('')}${tr.avg ? `<em style="bottom:${(18 + tr.avg / tr.max * 102).toFixed(1)}px"></em>` : ''}</div>
+    <p class="small" style="margin:8px 0 14px">${tr.avg ? `Usually <b class="num">${R(tr.avg)}</b> a month. ${tr.now ? `This month: <b class="num">${R(tr.now)}</b>${tr.pace > tr.avg * 1.15 ? `, <span style="color:var(--warn,#e8a33d)">on pace for ${R(tr.pace)}</span>` : tr.pace && tr.pace < tr.avg * 0.85 ? `, <span style="color:var(--good)">below your usual</span>` : ''}.` : 'Nothing yet this month.'}` : 'Not enough history yet for a usual amount.'}</p>` : '';
   openSheet(`<h2 id="sheetTitle">${esc(cat)}</h2><p class="soft small" style="margin:4px 0 14px">${longMonth(S.month)} · ${R(tx.reduce((a, t) => a - t.amount, 0))} across ${tx.length} payments</p>
+    ${trend}${isOut ? `<p style="margin:0 0 14px"><button class="btn ghost sm" data-lim="${esc(cat)}">${lim ? `Limit: ${R(lim)} a pay cycle · Change` : 'Set a limit for this'}</button></p>` : ''}
     ${[...by].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, v]) => `<div class="meter-top" style="padding:8px 0;border-top:1px solid var(--line)"><span>${esc(B.labelOf(m))}</span><b class="num">${R(v)}</b></div>`).join('')}
     <h3 style="margin:18px 0 4px">Payments</h3>${tx.slice(0, 40).map((t) => `<div class="meter-top" style="padding:6px 0"><span class="soft">${fmtDay(t.date)} · ${esc(B.labelOf(t.merchant))}</span><span class="num">${R(t.amount, 2)}</span></div>`).join('')}`);
 }
@@ -2409,7 +2452,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#scrim') || e.target.closest('#sheetX')) return closeSheet();
   const chip = e.target.closest('[data-month]'); if (chip) { S.month = chip.dataset.month; return render(); }
   const cat = e.target.closest('[data-cat]'); if (cat) return catSheet(cat.dataset.cat);
-  const tx = e.target.closest('[data-tx]'); if (tx) return txSheet(tx.dataset.tx);
+  const tx = e.target.closest('[data-tx]'); if (tx) { if (S.sel && tx.closest('#txList')) { const id = tx.dataset.tx; if (S.sel.has(id)) S.sel.delete(id); else S.sel.add(id); tx.classList.toggle('picked', S.sel.has(id)); tx.setAttribute('aria-pressed', S.sel.has(id)); navigator.vibrate?.(8); return selBar(); } return txSheet(tx.dataset.tx); }
   const ed = e.target.closest('[data-edit]'); if (ed) return editSheet(ed.dataset.edit);
   const th = e.target.closest('[data-theme-set]'); if (th) { const v = th.dataset.themeSet; try { localStorage.setItem('baobab:theme', v); } catch {} setTheme(v); for (const b of $$('[data-theme-set]')) b.setAttribute('aria-pressed', b === th); S.drawn = false; return render(); }
   const st = e.target.closest('[data-set]'); if (st) { const k = st.dataset.set, v = st.dataset.val; S.plan[k] = isNaN(+v) ? v : +v; for (const b of $$(`[data-set="${k}"]`)) b.setAttribute('aria-pressed', b === st); persist(['plan']); render(); return toast('Saved'); }
@@ -2426,7 +2469,7 @@ document.addEventListener('click', (e) => {
     render();
   }
 });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') return; if ($('#sheet').classList.contains('on')) closeSheet(); else if (S.sel) { S.sel = null; renderActivity(); } });
 $('#q').addEventListener('input', () => { S.txLimit = 80; renderActivity(); }); $('#fCat').addEventListener('change', () => { S.txLimit = 80; renderActivity(); }); $('#fMonth').addEventListener('change', () => { S.txLimit = 80; renderActivity(); });
 $('#wiRange').addEventListener('input', (e) => { S.whatIf = +e.target.value; renderWhatIf(derive()); });
 $('#txMore').addEventListener('click', () => { S.txLimit += 200; renderActivity(); });
@@ -2741,8 +2784,9 @@ function renderLimits(d) {
   $('#limitNote').textContent = L.length ? `pay cycle · ${d.safe.cycle.days} days left` : '';
   $('#limits').innerHTML = L.length ? L.map((x) => `<button class="lim ${x.over ? 'over' : x.warn || x.ahead ? 'warn' : ''}" data-lim="${esc(x.cat)}"><span class="lim-top"><b>${esc(x.cat)}</b><span class="num">${x.over ? R(-x.left) + ' over' : R(x.left) + ' left'}</span></span>
       <span class="lim-bar" aria-hidden="true"><i style="width:${Math.min(100, x.pct * 100).toFixed(1)}%"></i><em style="left:${Math.min(100, x.expected / x.limit * 100).toFixed(1)}%"></em></span>
-      <span class="lim-sub small soft">${R(x.spent)} of ${R(x.limit)}${x.ahead && !x.over ? ' · ahead of pace' : ''}</span></button>`).join('') + '<button class="btn ghost sm" data-lim="" style="margin-top:6px">+ Add a limit</button>'
-    : `<div class="lim-empty"><p class="soft small">Cap a category that gets away from you, like eating out. You'll see your pace and get a nudge at 80%.</p><button class="btn sm" data-lim="">+ Set a limit</button></div>`;
+      <span class="lim-sub small soft">${R(x.spent)} of ${R(x.limit)}${x.ahead && !x.over ? ' · ahead of pace' : ''}</span></button>`).join('') + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px"><button class="btn ghost sm" data-lim="">+ Add a limit</button>' + (B.suggestLimits(d.all, S.plan).length ? '<button class="btn ghost sm" id="limSug">Suggest more</button>' : '') + '</div>'
+    : `<div class="lim-empty"><p class="soft small">Cap a category that gets away from you, like eating out. You'll see your pace and get a nudge at 80%.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn sm" id="limSug">Suggest limits for me</button><button class="btn ghost sm" data-lim="">+ Set one myself</button></div></div>`;
+  if ($('#limSug')) $('#limSug').onclick = suggestLimitsNow;
 }
 function limitSheet(cat) {
   const d = derive(), avg = new Map(B.categoryAverages(d.all).rows.map((r) => [r.category, r.avg])), cats = B.CATEGORIES.filter((c) => !['income', 'internal'].includes(B.groupOf(c)) && c !== 'Cash withdrawal');
@@ -2758,6 +2802,46 @@ function limitSheet(cat) {
     $('#liSave').onclick = (ev) => { const btn = ev && ev.currentTarget; if (btn && btn.dataset.busy) return; if (btn) { btn.dataset.busy = 1; setTimeout(() => { delete btn.dataset.busy; }, 700); } const v = moneyIn($('#liAmt').value); if (!v) return toast('Type a limit first.'); S.plan.limits = {...(S.plan.limits || {}), [which()]: v}; persist(['plan'], `${which()}: ${R(v)} a pay cycle`); closeSheet(); render(); };
     if ($('#liDel')) $('#liDel').onclick = () => { const l = {...(S.plan.limits || {})}; delete l[cat]; S.plan.limits = l; persist(['plan'], `${cat} limit removed`); closeSheet(); render(); };
   });
+}
+// Pick several transactions and change them together (Cashew-style multi-select).
+function selBar() {
+  let bar = $('#selBar');
+  if (!S.sel || S.view !== 'activity') { if (bar) bar.remove(); return; }
+  if (!bar) { bar = document.createElement('div'); bar.id = 'selBar'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'Selected transactions'); document.body.append(bar); }
+  const all = derive().all, picked = all.filter((t) => S.sel.has(t.id)), n = picked.length, out = -picked.reduce((a, t) => a + Math.min(0, t.amount), 0), inn = picked.reduce((a, t) => a + Math.max(0, t.amount), 0), shown = (S.listed || []).length;
+  bar.innerHTML = `<div class="sb-top"><b>${n ? `${n} selected` : 'Tap transactions to pick them'}</b>${n ? `<span class="num soft">${[out ? R(out, 2) + ' out' : '', inn ? R(inn, 2) + ' in' : ''].filter(Boolean).join(' · ')}</span>` : ''}<button class="link" id="sbAll">${n && n >= shown ? 'Clear' : `All ${shown}`}</button></div>
+    <div class="sb-acts"><button class="chip" data-sb="cat" ${n ? '' : 'disabled'}>Category</button><button class="chip" data-sb="tag" ${n ? '' : 'disabled'}>Tag</button><button class="chip" data-sb="oneoff" ${n ? '' : 'disabled'}>One-off</button><button class="btn sm" id="sbDone">Done</button></div>`;
+  $('#sbAll').onclick = () => { if (n && n >= shown) S.sel.clear(); else for (const t of S.listed || []) S.sel.add(t.id); renderActivity(); };
+  $('#sbDone').onclick = () => { S.sel = null; renderActivity(); };
+  for (const b of bar.querySelectorAll('[data-sb]')) b.onclick = () => selAction(b.dataset.sb, picked);
+}
+function selAction(kind, picked) {
+  if (!picked.length) return;
+  const done = (keys, msg) => { persist(keys, msg); S.sel = null; closeSheet(); render(); };
+  if (kind === 'oneoff') { const on = !picked.every((t) => t.oneoff); S.plan.oneoff = {...(S.plan.oneoff || {})}; for (const t of picked) if (t.amount < 0) { if (on) S.plan.oneoff[t.id] = 1; else delete S.plan.oneoff[t.id]; } return done(['plan'], on ? `${picked.length} marked as one-offs` : `${picked.length} counted normally again`); }
+  if (kind === 'tag') return openSheet(`<h2 id="sheetTitle">Tag ${picked.length} transactions</h2><p class="soft small" style="margin:4px 0 14px">Like "Durban trip". Search #tag in Activity to see them together.</p>
+    <input class="field" id="sbTag" style="width:100%" maxlength="30" placeholder="Tag name" list="sbTags"><datalist id="sbTags">${[...new Set(Object.values(S.plan.tags || {}))].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
+    <div style="display:flex;gap:10px;margin-top:14px"><button class="btn" id="sbTagGo" style="flex:1">Tag them</button><button class="btn ghost" id="sbTagX">Remove tags</button></div>`, () => {
+    const go = (v) => { S.plan.tags = {...(S.plan.tags || {})}; for (const t of picked) { if (v) S.plan.tags[t.id] = v; else delete S.plan.tags[t.id]; } done(['plan'], v ? `Tagged ${picked.length}: ${v}` : 'Tags removed'); };
+    $('#sbTagGo').onclick = () => { const v = $('#sbTag').value.trim().slice(0, 30); if (!v) return toast('Type a tag first.'); go(v); }; $('#sbTagX').onclick = () => go('');
+  });
+  if (kind === 'cat') {
+    const shops = new Set(picked.filter((t) => !t.manual).map((t) => t.merchant));
+    return openSheet(`<h2 id="sheetTitle">Category for ${picked.length}</h2><p class="soft small" style="margin:4px 0 14px">${shops.size ? `Also used for future payments to ${shops.size === 1 ? 'this shop' : `these ${shops.size} shops`}.` : 'For these entries.'}</p>
+      <div class="qcats">${B.CATEGORIES.filter((c) => c !== 'Pocket transfer').map((c) => `<button class="chip" data-sbc="${esc(c)}">${esc(c)}</button>`).join('')}</div>`, () => {
+      for (const b of $$('#sheetBody [data-sbc]')) b.onclick = () => { const c = b.dataset.sbc, keys = [];
+        if (shops.size) { S.overrides = {...S.overrides}; for (const m of shops) S.overrides[m] = c; keys.push('overrides'); }
+        const man = new Set(picked.filter((t) => t.manual).map((t) => t.id)); if (man.size) { S.cash = S.cash.map((x) => (man.has('c-' + x.id) ? {...x, category: c} : x)); keys.push('cash'); }
+        done(keys, `${picked.length} moved to ${c}`); };
+    });
+  }
+}
+// Starter limits from what you usually spend.
+function suggestLimitsNow() {
+  const sug = B.suggestLimits(derive().all, S.plan);
+  if (!sug.length) return toast('Not enough history to suggest limits yet.');
+  S.plan.limits = {...(S.plan.limits || {}), ...Object.fromEntries(sug.map((x) => [x.cat, x.limit]))};
+  persist(['plan'], `Added ${sug.length} limits: ${sug.map((x) => x.cat).join(', ')}`); closeSheet(); render();
 }
 // Download what you see in Activity as a spreadsheet file.
 function exportCSV(list) {
