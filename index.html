@@ -193,6 +193,15 @@ body:has(#selBar) .fab{opacity:0;pointer-events:none;transform:scale(.8)}
 .pk-auto{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--soft)}.pk-auto::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);flex:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--good) 22%,transparent)}
 .pk-auto.est::before{background:var(--soft);box-shadow:none}
 .pk-moves{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}.pk-moves li{display:flex;justify-content:space-between;color:var(--soft)}.pk-moves b{color:var(--good);font-weight:600}.pk-moves b.neg{color:var(--ink)}
+.coach .co-steps{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.co-steps li{display:grid;grid-template-columns:10px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.co-steps li:first-child{border-top:0}.co-steps i{width:10px;height:10px;border-radius:3px;background:var(--c)}
+.co-steps div,.co-leaks div{display:grid;gap:2px;min-width:0}.co-steps span,.co-leaks span{font-size:13px;color:var(--soft);line-height:1.35}
+.co-steps em,.co-leaks em{font-style:normal;font-weight:700;font-size:17px;text-align:right}
+.co-keep{margin:10px 0 0;color:var(--soft)}
+.co-leaks{list-style:none;margin:0;padding:0;display:grid}.co-leaks li{display:flex;gap:14px;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.co-leaks em{display:grid;flex:none;white-space:nowrap;color:var(--warn,#e8a33d)}.co-leaks li>div{flex:1}.co-leaks em small{font-size:11px;font-weight:500;color:var(--soft)}
+.co-save{margin:12px 0 0;padding:10px 12px;border-radius:12px;background:color-mix(in oklab,var(--good) 12%,transparent)}
 #lock{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:color-mix(in oklab,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(28px) saturate(1.2);backdrop-filter:blur(28px) saturate(1.2)}
 #lock[hidden]{display:none}#lock .lk{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px}#lock .lk img{width:72px;height:72px;border-radius:18px;box-shadow:0 20px 50px -20px #000}
 #lock .lk b{font:700 22px "Schibsted Grotesk",sans-serif}#lock .lk p{margin:0;color:var(--soft);font-size:14px;min-height:20px}
@@ -499,6 +508,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
       <div class="card money" id="moneyCard"><div class="card-h"><h2>Your money</h2><span class="soft small" id="moneyNote"></span></div>
         <div class="mn-top"><div><span class="soft small">Everything you have</span><div class="mn-total num" id="mnTotal">R0</div><span class="mn-delta" id="mnDelta"></span></div><div class="spark" id="mnSpark" role="img" aria-label="Net worth trend"></div></div>
         <div class="mn-grid" id="mnGrid"></div><div class="mn-ahead" id="mnAhead"></div></div>
+      <div class="card coach" id="coachCard" hidden></div>
       <button class="checkin" id="checkinBtn" hidden><span><b>Your weekly check-in</b><span>30 seconds: how the week went and what's coming</span></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>
       <div class="card inbox" id="inboxCard" hidden><div class="card-h"><h2>To review</h2><span class="soft small" id="inboxNote"></span></div><div id="inbox"></div></div>
       <div class="card" id="movesCard" hidden><div class="card-h"><h2>Latest money moves</h2><span class="soft small" id="movesNote"></span></div><div id="moves"></div><div class="moves-foot" id="movesFoot"></div></div>
@@ -802,6 +812,45 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     const hit = pockets.map((p) => ({p, i: Math.max(...[p.name, ...(p.aliases || [])].map((a) => head.toLowerCase().indexOf(String(a).toLowerCase())))}))
       .filter((x) => x.i >= 0).sort((a, b) => b.p.name.length - a.p.name.length)[0];
     return hit ? {key: hit.p.key, name: hit.p.name, closing, to} : {key: null, closing, to};
+  }
+
+  /* ---------------- money coach ----------------
+     Works out a payday plan from your own history (no setup needed) and finds money leaking away. */
+  function coach(tx, plan, today) {
+    const R = (v) => 'R' + Math.round(v).toLocaleString('en-US'), r50 = (v) => Math.max(0, Math.round(v / 50) * 50), fm = fullMonths(tx).slice(-3), ms = monthsOf(tx).filter((m) => fm.includes(m.month));
+    const avg = (k) => (ms.length ? sum(ms, (m) => m[k]) / ms.length : 0);
+    const income = +plan.take_home || Math.round(avg('salary')) || Math.round(avg('income'));
+    const rec = recurring(tx).filter((r) => r.status === 'active' && groupOf(r.category) === 'bills');
+    const bills = Math.round(Math.max(sum(rec, (r) => r.monthly), avg('bills'))), everyday = Math.round(avg('everyday')), wantsAvg = Math.round(avg('wants'));
+    const pk = (k) => plan.pockets.find((p) => p.key === k) || null, em = pk('emergency'), yr = pk('yearly'), gl = pk('goals'), wn = pk('wants');
+    const essentials = bills + everyday, emTarget = Math.round(essentials * 3 / 1000) * 1000;
+    const steps = [], why = {};
+    let left = income - bills - everyday - Math.round(income * 0.05);  // keep 5% in the main account as a cushion
+    if (income && left > 0) {
+      if (em) { const gap = Math.max(0, emTarget - (+em.balance || 0)); const a = gap ? r50(Math.min(gap / 6, left * 0.25)) : 0;
+        steps.push({key: em.key, name: em.name, amount: a, why: gap ? `${R(gap)} short of 3 months of essentials (${R(emTarget)})` : `Full: ${R(+em.balance || 0)} covers 3 months of essentials. Nothing needed.`}); left -= a; }
+      if (yr) { const te = trueExpenses(plan, today).monthly, a = r50(te || +yr.monthly || income * 0.04);
+        steps.push({key: yr.key, name: yr.name, amount: a, why: te ? 'Your yearly bills ÷ 12' : 'For Christmas, birthdays, licence and services, so they never surprise you'}); left -= a; }
+      if (gl) { const a = r50(left * 0.5);
+        steps.push({key: gl.key, name: gl.name, amount: a, why: gl.goal ? `Toward ${gl.goal}${gl.target ? `: ${R(Math.max(0, gl.target - (+gl.balance || 0)))} to go` : ''}` : 'Your next big purchase'}); left -= a; }
+      if (wn) { const a = r50(Math.min(left, Math.max(wantsAvg * 0.85, 0)) || left);
+        steps.push({key: wn.key, name: wn.name, amount: a, why: wantsAvg ? (a < wantsAvg * 0.9 ? `Fun money for the month. You usually spend ${R(wantsAvg)} on wants, so this is a cut of ${R(wantsAvg - a)}` : `Fun money. You usually spend ${R(wantsAvg)}`) : 'Fun money for the month'}); left -= a; }
+    }
+    // Money leaking away, as a yearly figure.
+    const leaks = [], cat = (c) => (fm.length ? sum(tx.filter((t) => t.amount < 0 && t.category === c && fm.includes(t.date.slice(0, 7))), (t) => -t.amount) / fm.length : 0);
+    const fees = cat('Bank fees'); if (fees >= 15) leaks.push({title: 'Bank fees', yearly: Math.round(fees * 12), tip: 'Use card or tap instead of cash withdrawals, and turn off SMS notifications in the Capitec app (app alerts are free).'});
+    const subs = recurring(tx).filter((r) => r.status === 'active' && r.category === 'Subscriptions');
+    const streams = subs.filter((r) => /netflix|showmax|disney|dstv|prime video|amazon prime|youtube premium|spotify|deezer|apple tv|apple music/i.test(r.merchant));
+    if (streams.length >= 3) leaks.push({title: `${streams.length} streaming services`, yearly: Math.round(sum(streams, (r) => r.yearly)), save: Math.round(Math.min(...streams.map((r) => r.yearly))), tip: `${streams.map((r) => r.label).join(', ')}. Rotate: keep one at a time and switch monthly.`});
+    for (const p of priceRises(tx).slice(0, 3)) leaks.push({title: `${p.label} went up`, yearly: Math.round((p.to - p.from) * 12), tip: `From ${R(p.from)} to ${R(p.to)} a month. Check for a cheaper plan.`});
+    const eat = cat('Eating out'); if (eat > 800) leaks.push({title: 'Eating out and takeaways', yearly: Math.round(eat * 12), save: Math.round(eat * 12 / 3), tip: `About ${R(eat)} a month. Cooking one more night a week saves roughly a third.`});
+    const small = fm.length ? tx.filter((t) => t.amount < 0 && t.amount > -60 && ['wants', 'everyday'].includes(groupOf(t.category)) && t.category !== 'Groceries' && fm.includes(t.date.slice(0, 7))) : [];
+    const smallM = small.length ? sum(small, (t) => -t.amount) / fm.length : 0;
+    if (smallM > 300) leaks.push({title: 'Small spends under R60', yearly: Math.round(smallM * 12), tip: `${Math.round(small.length / fm.length)} little buys a month (snacks, coffee, apps). They are easy to miss and add up.`});
+    const cashW = cat('Cash withdrawal'); if (cashW > 1000) leaks.push({title: 'Cash you can\'t see', yearly: Math.round(cashW * 12), tip: 'Cash spending is invisible to the app. Log it with + or pay by card where you can.'});
+    leaks.forEach((l) => { if (l.save == null) l.save = l.title === 'Small spends under R60' ? Math.round(l.yearly / 2) : l.yearly; });
+    leaks.sort((a, b) => b.save - a.save);
+    return {income, bills, everyday, wantsAvg, emTarget, steps, keep: Math.round(income * 0.05) + Math.max(0, Math.round(left)), leaks, saveable: sum(leaks, (l) => l.save), months: fm.length};
   }
   /* ---------------- plan ---------------- */
   /* A blank plan: no personal numbers. Your own plan lives on your device (or your server). */
@@ -1389,7 +1438,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     return rows.filter((r) => (r.group === 'wants' || r.group === 'everyday') && r.category !== 'Cash withdrawal' && !(+have[r.category] > 0) && r.avg >= 100)
       .slice(0, max).map((r) => ({cat: r.category, limit: Math.max(50, Math.round(r.avg / 50) * 50), avg: r.avg}));
   }
-  const api = {pocketFlows, pocketBalance, pocketStatement, transferTarget, categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+  const api = {coach, pocketFlows, pocketBalance, pocketStatement, transferTarget, categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
     nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
     toTransactions, merge, monthName, MONTHS, iso, D,
     cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
@@ -1497,10 +1546,34 @@ function derive() {
     cl: B.checklist(S.plan, t, new Set(S.ticks)), proj: B.project(S.plan, t, 14), safe, fc,
     bc: tx.length ? B.billsCycle(tx, rc.open, safe.cycle.start, t, safe.cycle.end) : null,
     stored: S.plan.pockets.filter((p) => p.kind !== 'spend').reduce((a, p) => a + +p.balance, 0)};
+  d.coach = B.coach(all, S.plan, t); autoPlan(d.coach);
   d.limits = B.limitStatus(all, S.plan, t); d.owed = B.owedSummary(S.owed, t); d.wallet = W.on ? B.walletBalance(tx, S.cash, W.since, W.opening, W.at) : null;
   d.parts = worthParts(d); d.worth = d.parts.reduce((a, p) => a + p.v, 0);
   d.health = B.health(tx, S.plan, d.stored + Math.max(0, fc ? fc.start : 0)); d.pace = B.spendPace(all, S.plan, t); d.te = B.trueExpenses(S.plan, t);
   return d;
+}
+// Nothing to set up: anything you haven't filled in comes from your own history, and pockets you haven't
+// given a monthly amount get the coach's. Whatever you type yourself always wins.
+function autoPlan(c) {
+  const P = S.plan; let ch = false;
+  if (!+P.take_home && c.income > 0) { P.take_home = c.income; P.autoTH = true; ch = true; }
+  if (!+P.budget.bills && c.bills) { P.budget.bills = c.bills; ch = true; }
+  if (!+P.budget.everyday && c.everyday) { P.budget.everyday = Math.round(c.everyday / 50) * 50; ch = true; }
+  for (const st of c.steps) { const p = P.pockets.find((x) => x.key === st.key); if (p && !p.mset && +p.monthly !== st.amount && (!+p.monthly || p.autoM)) { p.monthly = st.amount; p.autoM = true; ch = true; } }
+  const w = c.steps.find((x) => x.key === 'wants'); if (w && (!+P.budget.wants || P.autoW) && P.budget.wants !== w.amount) { P.budget.wants = w.amount; P.autoW = true; ch = true; }
+  if (ch && !S.sample) { clearTimeout(pocketSaveTimer); pocketSaveTimer = setTimeout(() => persist(['plan']), 800); }
+}
+function renderCoach(d) {
+  const c = d.coach, el = $('#coachCard'); if (!el) return;
+  if (!c.months) { el.hidden = true; return; }
+  el.hidden = false;
+  const pay = fmtDow(d.safe.cycle.end), tot = c.steps.reduce((a, x) => a + x.amount, 0);
+  el.innerHTML = `<div class="card-h"><h2>Spend wisely</h2><span class="soft small">From your last ${c.months} months</span></div>
+    ${c.steps.length ? `<p class="small soft" style="margin:0 0 10px">On payday (${pay}), after ${R(c.bills)} of bills and about ${R(c.everyday)} for groceries and transport, move:</p>
+    <ol class="co-steps">${c.steps.map((x) => `<li style="--c:${COL[x.key] || 'var(--acc)'}"><i></i><div><b>${esc(x.name)}</b><span>${esc(x.why)}</span></div><em class="num">${x.amount ? R(x.amount) : '—'}</em></li>`).join('')}</ol>
+    <p class="small co-keep">Moves ${R(tot)} to your pockets and keeps ${R(c.keep)} in your main account as a cushion.</p>` : '<p class="soft small">Your payday plan appears once a full month of salary is in.</p>'}
+    ${c.leaks.length ? `<h3 class="sheet-sec" style="margin-top:18px">Money leaking away</h3><ul class="co-leaks">${c.leaks.slice(0, 4).map((l) => `<li><div><b>${esc(l.title)}</b><span>${esc(l.tip)}</span></div><em class="num">${R(l.yearly)}<small>a year</small></em></li>`).join('')}</ul>
+    <p class="small co-save">Fixing these could keep about <b class="num">${R(c.saveable)}</b> a year in your pocket.</p>` : '<p class="small soft" style="margin-top:14px">No money leaks found. Nicely done.</p>'}`;
 }
 // Pocket balances keep themselves up to date: last sure balance + every transfer since (see engine pocketFlows).
 let pocketSaveTimer;
@@ -1771,6 +1844,7 @@ function renderMoves(d) {
   $('#movesFoot').innerHTML = facts.join('');
 }
 function renderToday(d) {
+  renderCoach(d);
   const s = d.safe, c = s.cycle, payDate = fmtDow(c.end);
   if (!S.plan.take_home || !((S.plan.budget.everyday || 0) + (S.plan.budget.wants || 0))) {
     $('#safeLabel').textContent = 'Saved in your pockets'; countUp($('#safe'), Math.round(d.stored));
@@ -2389,7 +2463,7 @@ function planSheet() {
     <details style="margin-top:16px"><summary class="soft small">Paste a saved plan</summary><textarea id="planPaste" rows="4" class="field" style="width:100%;margin-top:8px;padding:10px;font:16px ui-monospace,monospace"></textarea><button class="btn ghost" id="usePaste" style="margin-top:8px">Use this plan</button></details>`, () => {
     $('#planForm').onsubmit = (e) => { e.preventDefault(); const n = (id) => { const v = B.amountOf(($('#' + id)?.value || '').trim() || 'x'); return isFinite(v) ? v : 0; };
       P.take_home = n('p-th'); P.payday = Math.min(31, Math.max(1, n('p-pd') || 25)); P.budget.bills = n('p-bills'); P.budget.everyday = n('p-every');
-      for (const p of P.pockets) { const nb = n('b-' + p.key); if (nb !== p.balance) anchorPocket(p, nb); p.monthly = n('m-' + p.key); if ($('#t-' + p.key)) p.target = n('t-' + p.key) || null; }
+      for (const p of P.pockets) { const nb = n('b-' + p.key); if (nb !== p.balance) anchorPocket(p, nb); const nm = n('m-' + p.key); if (nm !== p.monthly) { p.mset = true; p.autoM = false; } p.monthly = nm; if ($('#t-' + p.key)) p.target = n('t-' + p.key) || null; }
       const g = P.pockets.find((p) => p.key === 'goals'); if (g && $('#g-name')) g.goal = $('#g-name').value.trim() || 'Next big purchase';
       P.budget.wants = P.pockets.find((p) => p.key === 'wants')?.monthly || 0;
       P.budget.savings = P.pockets.filter((p) => p.key !== 'wants').reduce((a, p) => a + (p.monthly || 0), 0);
