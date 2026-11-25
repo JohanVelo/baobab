@@ -1615,8 +1615,9 @@ function syncPockets(all, t) {
   }
   const pf = B.pocketFlows(all, S.plan.pockets, t);
   for (const p of S.plan.pockets) {
+    if (p.atTime === '2026-11-25T10:25:00Z') { p.atTime = '2026-11-25T10:14:00Z'; changed = true; }  // the balances you had were from 12:14, before your 12:16 moves
     if (p.at === undefined) { p.at = todayISO(); p.atTime = new Date().toISOString(); p.base = +p.balance || 0; changed = true; }
-    else if (p.at === todayISO() && !p.atTime && p.base != null) { p.atTime = p.at === '2026-11-25' ? '2026-11-25T10:25:00Z' : new Date(Date.now() - 6 * 3600e3).toISOString(); changed = true; }  // anchored earlier today, before move times were kept  // first run: the balances you have are today's
+    else if (p.at === todayISO() && !p.atTime && p.base != null) { p.atTime = p.at === '2026-11-25' ? '2026-11-25T10:14:00Z' : new Date(Date.now() - 6 * 3600e3).toISOString(); changed = true; }  // anchored earlier today, before move times were kept  // first run: the balances you have are today's
     if (!pf.flows.has(p.key) && !p.at) continue;
     const v = B.pocketBalance(p, pf.flows), nv = p.at ? v : Math.max(0, v);
     if (nv !== p.balance) { p.balance = nv; changed = true; }
@@ -3192,7 +3193,9 @@ async function boot(quiet) {
     const changed = quiet && was !== JSON.stringify([S.tx.length, S.live.map((l) => l.id), S.plan, S.ticks, S.overrides, S.cash, S.owed]);
     // A payment that just happened: say so, so you see it arrive.
     const fresh = quiet && seen.size ? S.live.filter((l) => !seen.has(l.id)) : [];
-    if (fresh.length) { const l = fresh[fresh.length - 1], m = B.labelOf(B.merchantOf(((l.raw && B.readNotification('', l.raw)) || l).merchant)); setTimeout(() => toast(fresh.length > 1 ? `${fresh.length} new payments` : `${l.direction === 'in' ? '+' : ''}${R(+l.amount, 2)} ${l.direction === 'in' ? 'from' : 'at'} ${m}`), 300); }
+    if (fresh.length) { const l = fresh[fresh.length - 1], mv = l.raw ? B.pocketMove(l.raw, S.plan.pockets) : null, pn = (k) => (k === 'main' ? 'Main' : (S.plan.pockets.find((p) => p.key === k) || {}).name || k);
+      if (mv && fresh.length === 1) { setTimeout(() => toast(`R${(+l.amount).toFixed(2)} moved: ${pn(mv.from)} → ${pn(mv.to)}`), 300); } else {
+      const m = B.labelOf(B.merchantOf(((l.raw && B.readNotification('', l.raw)) || l).merchant)); setTimeout(() => toast(fresh.length > 1 ? `${fresh.length} new payments` : `${l.direction === 'in' ? '+' : ''}${R(+l.amount, 2)} ${l.direction === 'in' ? 'from' : 'at'} ${m}`), 300); } }
     if (!quiet) { const v = location.hash.slice(1); go(['today', 'spending', 'pockets', 'activity'].includes(v) ? v : 'today'); }
     else if (changed || S.view === 'empty' || S.view === 'loading') after();
     else { renderSync(); try { logWorthNow(derive()); } catch {} }
