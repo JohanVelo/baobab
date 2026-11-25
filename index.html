@@ -1261,6 +1261,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     if (!last) return null;
     const c = cycle(plan, today);
     // Capitec's own "Avail" figure in the newest notification beats statement + live arithmetic.
+    liveOpen = liveOpen.filter((l) => !l.between);  // pocket → pocket moves never touch the main account
     let k = -1; liveOpen.forEach((l, i) => { if (l.avail != null) k = i; });
     let bal = k >= 0 ? liveOpen[k].avail + liveOpen.slice(k + 1).reduce((a, l) => a + l.amount, 0) : last.balance + liveOpen.reduce((a, l) => a + l.amount, 0);
     const start = Math.round(bal * 100) / 100, bankAsOf = k >= 0 ? liveOpen[k].received || liveOpen[k].date : null;
@@ -1599,13 +1600,20 @@ function livePocket(t) {
   const mv = t.raw ? B.pocketMove(t.raw, S.plan.pockets) : null; if (!mv) return t;
   const nm = (k) => (S.plan.pockets.find((p) => p.key === k) || {}).name || k, v = Math.abs(t.amount);
   if (mv.from === 'main') return {...t, description: `Transfer to ${nm(mv.to)}`, merchant: `TRANSFER TO ${nm(mv.to).toUpperCase()}`, category: 'Pocket transfer', amount: -v};
-  if (mv.to === 'main') return {...t, description: `Transfer Received from ${nm(mv.from)}`, merchant: `TRANSFER FROM ${nm(mv.from).toUpperCase()}`, category: 'Pocket transfer', amount: v, avail: null};
-  return {...t, description: `${nm(mv.from)} → ${nm(mv.to)}`, merchant: `POCKET MOVE`, category: 'Pocket transfer', between: [mv.from, mv.to], amount: -v, avail: null};
+  // Capitec's "Avail" on these alerts is what is left in the pocket the money came from: an exact balance.
+  const pa = t.avail != null ? {key: mv.from, value: t.avail, time: t.received || '', date: t.date} : null;
+  if (mv.to === 'main') return {...t, description: `Transfer Received from ${nm(mv.from)}`, merchant: `TRANSFER FROM ${nm(mv.from).toUpperCase()}`, category: 'Pocket transfer', amount: v, avail: null, pocketAvail: pa};
+  return {...t, description: `${nm(mv.from)} → ${nm(mv.to)}`, merchant: `POCKET MOVE`, category: 'Pocket transfer', between: [mv.from, mv.to], amount: -v, avail: null, pocketAvail: pa};
 }
 // Pocket balances keep themselves up to date: last sure balance + every transfer since (see engine pocketFlows).
 let pocketSaveTimer;
 function syncPockets(all, t) {
-  const pf = B.pocketFlows(all, S.plan.pockets, t); let changed = false;
+  let changed = false;
+  for (const x of all) if (x.pocketAvail && x.pocketAvail.time) {  // newest exact balance per pocket wins
+    const a = x.pocketAvail, p = S.plan.pockets.find((q) => q.key === a.key);
+    if (p && (!p.at || a.date > p.at || (a.date === p.at && (!p.atTime || a.time > p.atTime)))) { p.base = a.value; p.at = a.date; p.atTime = a.time; p.est = false; changed = true; }
+  }
+  const pf = B.pocketFlows(all, S.plan.pockets, t);
   for (const p of S.plan.pockets) {
     if (p.at === undefined) { p.at = todayISO(); p.atTime = new Date().toISOString(); p.base = +p.balance || 0; changed = true; }
     else if (p.at === todayISO() && !p.atTime && p.base != null) { p.atTime = p.at === '2026-11-25' ? '2026-11-25T10:25:00Z' : new Date(Date.now() - 6 * 3600e3).toISOString(); changed = true; }  // anchored earlier today, before move times were kept  // first run: the balances you have are today's
