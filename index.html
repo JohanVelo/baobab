@@ -190,6 +190,9 @@ body:has(#selBar) .fab{opacity:0;pointer-events:none;transform:scale(.8)}
 @media (min-width:900px){#selBar{bottom:24px}}
 .tx.picked{background:color-mix(in oklab,var(--em) 14%,var(--raise));box-shadow:inset 3px 0 0 var(--em)}
 .tx[aria-pressed] .ic{transition:transform var(--d1)}.tx.picked .ic{transform:scale(.9)}
+.pk-auto{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--soft)}.pk-auto::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--good);flex:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--good) 22%,transparent)}
+.pk-auto.est::before{background:var(--soft);box-shadow:none}
+.pk-moves{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13px}.pk-moves li{display:flex;justify-content:space-between;color:var(--soft)}.pk-moves b{color:var(--good);font-weight:600}.pk-moves b.neg{color:var(--ink)}
 #lock{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:color-mix(in oklab,var(--bg) 70%,transparent);-webkit-backdrop-filter:blur(28px) saturate(1.2);backdrop-filter:blur(28px) saturate(1.2)}
 #lock[hidden]{display:none}#lock .lk{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;padding:24px}#lock .lk img{width:72px;height:72px;border-radius:18px;box-shadow:0 20px 50px -20px #000}
 #lock .lk b{font:700 22px "Schibsted Grotesk",sans-serif}#lock .lk p{margin:0;color:var(--soft);font-size:14px;min-height:20px}
@@ -623,7 +626,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
   function parseText(text) {
     if (!text.includes('Transaction History') || !/capitec|Main Account Statement/i.test(text)) throw Object.assign(new Error("This isn't a Capitec account statement."), {notStatement: true});
     if (/Savings (Plan|Pocket)/i.test(text.slice(0, 600)) && !/Main Account/i.test(text.slice(0, 600)))
-      throw new Error('This is a savings pocket statement. Baobab needs your main account statement.');
+      throw Object.assign(new Error('This is a savings pocket statement. Baobab needs your main account statement.'), {pocketText: text});
     const opening = money(header(text, 'Opening Balance'));
     if (opening == null) throw new Error("Couldn't find the opening balance on page 1.");
     const closing = money(header(text, 'Closing Balance'));
@@ -753,6 +756,53 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
   function setCashWallet(on) { WALLET = !!on; }
   const groupOf = (cat) => (cat === 'Cash withdrawal' && WALLET ? 'internal' : GROUPS[cat] || 'wants');
 
+
+  /* ---------------- pockets, tracked from your transfers ----------------
+     Capitec writes a move into a savings pocket as "Transfer to Emergency: Transfer" and a move back as
+     "Transfer Received from Emergency: …". Each pocket's balance = the last balance we know for sure
+     (a pocket statement, or one you typed) + every transfer in or out since that day. */
+  const pnorm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  function transferTarget(t) {
+    const s = `${t.description || ''} ${t.merchant || ''}`;
+    if (/payshap|immediate|payment|cash ?send|airtime|prepaid/i.test(s)) return null;
+    const m = s.match(/transfer\s+(?:received\s+)?(?:to|from)\s+(.+?)\s*(?::|$|\s{2})/i);
+    if (!m) return null;
+    const name = m[1].replace(/\s+transfer$/i, '').trim();
+    return name && !/^(main|savings?)( account)?$/i.test(name) ? name : null;
+  }
+  function pocketFor(name, pockets) {
+    const n = pnorm(name); if (n.length < 3) return null;
+    // Exact names only: an old pocket like "20 Percent Wants" is a different pocket from today's "Wants".
+    return pockets.find((p) => [p.name, ...(p.aliases || [])].some((a) => pnorm(a) === n)) || null;
+  }
+  // Which transactions are pocket moves, the money each pocket gained, and pocket names we saw but don't know yet.
+  function pocketFlows(tx, pockets, today) {
+    const ids = new Map(), flows = new Map(), unknown = new Map(), recent = iso(new Date(D(iso(new Date(today))) - 60 * 864e5));
+    for (const t of tx) {
+      const name = transferTarget(t); if (!name) continue;
+      const p = pocketFor(name, pockets);
+      if (p) { ids.set(t.id, p.key); if (!flows.has(p.key)) flows.set(p.key, []); flows.get(p.key).push({date: t.date, amount: -t.amount, id: t.id}); continue; }
+      if (t.category === 'Pocket transfer' && t.date >= recent && !/percent/i.test(name)) {
+        const k = pnorm(name), u = unknown.get(k) || {name: name.replace(/\b\w/g, (c) => c.toUpperCase()), n: 0, first: t.date, last: t.date, net: 0};
+        u.n++; u.net += -t.amount; if (t.date < u.first) u.first = t.date; if (t.date > u.last) u.last = t.date; unknown.set(k, u);
+      }
+    }
+    return {ids, flows, unknown: [...unknown.values()]};
+  }
+  // Live balance of one pocket. `base`/`at` is the last sure balance; with none we add up every transfer we have.
+  function pocketBalance(p, flows) {
+    const since = p.at || '0000-00-00', moved = (flows.get(p.key) || []).filter((f) => f.date > since).reduce((a, f) => a + f.amount, 0);
+    const base = p.base != null ? +p.base : p.at ? +p.balance || 0 : 0;
+    return Math.round((base + moved) * 100) / 100;
+  }
+  // A Capitec savings pocket statement: which pocket (from the heading) and its closing balance.
+  function pocketStatement(text, pockets) {
+    const head = text.slice(0, 1500), closing = money(header(text, 'Closing Balance')), to = toISO(header(text, 'To Date'));
+    if (closing == null || !to) return null;
+    const hit = pockets.map((p) => ({p, i: Math.max(...[p.name, ...(p.aliases || [])].map((a) => head.toLowerCase().indexOf(String(a).toLowerCase())))}))
+      .filter((x) => x.i >= 0).sort((a, b) => b.p.name.length - a.p.name.length)[0];
+    return hit ? {key: hit.p.key, name: hit.p.name, closing, to} : {key: null, closing, to};
+  }
   /* ---------------- plan ---------------- */
   /* A blank plan: no personal numbers. Your own plan lives on your device (or your server). */
   const POCKETS = [
@@ -1339,7 +1389,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     return rows.filter((r) => (r.group === 'wants' || r.group === 'everyday') && r.category !== 'Cash withdrawal' && !(+have[r.category] > 0) && r.avg >= 100)
       .slice(0, max).map((r) => ({cat: r.category, limit: Math.max(50, Math.round(r.avg / 50) * 50), avg: r.avg}));
   }
-  const api = {categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+  const api = {pocketFlows, pocketBalance, pocketStatement, transferTarget, categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
     nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
     toTransactions, merge, monthName, MONTHS, iso, D,
     cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
@@ -1436,9 +1486,14 @@ function derive() {
   const sp = S.plan.splits || {};
   const oo = S.plan.oneoff || {}, tg = S.plan.tags || {}, mark = (x) => (oo[x.id] || tg[x.id] ? {...x, ...(oo[x.id] ? {oneoff: true} : {}), ...(tg[x.id] ? {tag: tg[x.id]} : {})} : x), rules = S.plan.rules || [];
   const tx = B.refunds(B.applyRules(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)), rules, S.overrides)).map(mark).map((x) => (sp[x.id] != null && x.amount < 0 ? {...x, full: x.amount, amount: -sp[x.id], split: true} : x));
-  const liveTx = B.applyRules(B.liveToTx(S.live, S.overrides, tx), rules, S.overrides).map(mark), rc = B.reconcile(tx, liveTx), manual = B.manualTx(S.cash).map(mark), all = B.allTx(tx, [...rc.open, ...manual]);
+  let liveTx = B.applyRules(B.liveToTx(S.live, S.overrides, tx), rules, S.overrides).map(mark);
+  // Moves to and from your savings pockets are your own money changing place: never spending, never income.
+  const pid = B.pocketFlows([...tx, ...liveTx], S.plan.pockets, t).ids, pmv = (x) => (pid.has(x.id) && x.category !== 'Pocket transfer' ? {...x, category: 'Pocket transfer', pocket: pid.get(x.id)} : pid.has(x.id) ? {...x, pocket: pid.get(x.id)} : x);
+  for (let i = 0; i < tx.length; i++) tx[i] = pmv(tx[i]); liveTx = liveTx.map(pmv);
+  const rc = B.reconcile(tx, liveTx), manual = B.manualTx(S.cash).map(mark), all = B.allTx(tx, [...rc.open, ...manual]);
+  const pf = syncPockets(all, t);
   const safe = B.safeToSpend(all, S.plan, t), fc = B.forecast(tx, rc.open, S.plan, t);
-  const d = {t, tx, all, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
+  const d = {t, tx, all, pf, liveOpen: rc.open, liveMatched: rc.matched, months: B.monthsOf(all), cur: all.length ? all[all.length - 1].date.slice(0, 7) : null,
     cl: B.checklist(S.plan, t, new Set(S.ticks)), proj: B.project(S.plan, t, 14), safe, fc,
     bc: tx.length ? B.billsCycle(tx, rc.open, safe.cycle.start, t, safe.cycle.end) : null,
     stored: S.plan.pockets.filter((p) => p.kind !== 'spend').reduce((a, p) => a + +p.balance, 0)};
@@ -1446,6 +1501,37 @@ function derive() {
   d.parts = worthParts(d); d.worth = d.parts.reduce((a, p) => a + p.v, 0);
   d.health = B.health(tx, S.plan, d.stored + Math.max(0, fc ? fc.start : 0)); d.pace = B.spendPace(all, S.plan, t); d.te = B.trueExpenses(S.plan, t);
   return d;
+}
+// Pocket balances keep themselves up to date: last sure balance + every transfer since (see engine pocketFlows).
+let pocketSaveTimer;
+function syncPockets(all, t) {
+  const pf = B.pocketFlows(all, S.plan.pockets, t); let changed = false;
+  for (const p of S.plan.pockets) {
+    if (p.at === undefined) { p.at = todayISO(); p.base = +p.balance || 0; changed = true; }  // first run: the balances you have are today's
+    if (!pf.flows.has(p.key) && !p.at) continue;
+    const v = B.pocketBalance(p, pf.flows), nv = p.at ? v : Math.max(0, v);
+    if (nv !== p.balance) { p.balance = nv; changed = true; }
+    p.est = !p.at;
+  }
+  // A pocket we've never heard of (you made a new one in the Capitec app): add it by itself.
+  for (const u of pf.unknown) {
+    if (S.plan.pockets.some((p) => p.name.toLowerCase() === u.name.toLowerCase())) continue;
+    const key = 'auto-' + u.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    S.plan.pockets.push({key, name: u.name, where: 'Capitec', kind: 'save', balance: Math.max(0, u.net), base: 0, at: null, est: true, target: null, monthly: 0, day: null, custom: true, auto: true, job: 'Found by itself from your transfers.'});
+    pf.flows.set(key, []); changed = true;
+  }
+  if (changed && !S.sample) { clearTimeout(pocketSaveTimer); pocketSaveTimer = setTimeout(() => persist(['plan']), 800); }
+  return pf;
+}
+function anchorPocket(p, v, on) { p.base = v; p.at = on || todayISO(); p.est = false; p.balance = v; }
+// A savings pocket statement from Capitec locks in that pocket's exact balance.
+function usePocketStatement(e) {
+  if (!e || !e.pocketText) return null;
+  const ps = B.pocketStatement(e.pocketText, S.plan.pockets); if (!ps) return 'A pocket statement, but I could not read its balance.';
+  if (!ps.key) return 'A pocket statement for a pocket I don\'t know yet.';
+  const p = S.plan.pockets.find((x) => x.key === ps.key);
+  if (!p.at || ps.to >= p.at) { anchorPocket(p, ps.closing, ps.to); persist(['plan']); }
+  return `${p.name} balance locked in from its statement: ${R(ps.closing)}`;
 }
 // Everything you have, account by account (money owed on a card counts as negative).
 function worthParts(d) {
@@ -1488,7 +1574,7 @@ async function importFile(file) {
     const r = await addStatement(await readStatement(await file.arrayBuffer(), file.name));
     if (msg) msg.textContent = `Added ${r.added} new rows, ${fmtDay(r.from)} to ${fmtDay(r.to)}.`;
     S.meta.lastImport = new Date().toISOString(); after();
-  } catch (e) { if (msg) msg.textContent = e.message || String(e); }
+  } catch (e) { const pm = usePocketStatement(e); if (pm) { if (msg) msg.textContent = pm; render(); return; } if (msg) msg.textContent = e.message || String(e); }
 }
 async function autoImport(force) {
   if (!CLOUD || S.busy || (!S.meta.pending && !force)) return;
@@ -1504,6 +1590,7 @@ async function autoImport(force) {
         const r = await addStatement(await readStatement(b64(p.base64), p.name), p); added += r.added; S.failed = S.failed.filter((f) => f.messageId !== p.messageId);
         S.lastStatement = {name: p.name, from: r.from, to: r.to, added: r.added, at: new Date().toISOString()};
       } catch (e) {
+        const pm = usePocketStatement(e); if (pm) { await Store.skip(p.messageId, p.threadId, p.name, pm, true).catch(() => {}); found--; toast(pm); continue; }
         const reason = e.message || String(e);
         // Some other PDF that matched the search (a slip, an invoice): set it aside quietly.
         if (e.notStatement || (!/capitecbank/i.test(p.from || '') && /invalid pdf|password/i.test(reason))) { await Store.skip(p.messageId, p.threadId, p.name, reason, true).catch(() => {}); found--; continue; }
@@ -2050,7 +2137,9 @@ function renderPockets(d) {
     return `<div class="card pocket" style="--c:${COL[p.key] || 'var(--line)'}"><div class="card-h" style="margin:0"><h3>${esc(p.name)}</h3><span class="tag">${esc(p.where)}</span></div>
       <div class="pk-top"><div class="bal num">${R(p.balance)}</div>${(() => { const v = p.key === 'allangray' ? Math.min(100, p.balance / 46000 * 100) : pct; if (v == null) return ''; const c = 2 * Math.PI * 22;
         return `<svg class="ring" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="color-mix(in oklab,var(--ink) 9%,transparent)" stroke-width="6"/><circle class="ring-v" cx="28" cy="28" r="22" fill="none" stroke="${COL[p.key] || 'var(--acc)'}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" style="--to:${c * (1 - v / 100)}" transform="rotate(-90 28 28)"/><text x="28" y="32" text-anchor="middle">${Math.round(v)}%</text></svg>`; })()}</div>
-      <p class="job">${esc(p.job)}</p>${extra}
+      <p class="job">${esc(p.job)}</p>${extra}${(() => { const mv = (d.pf.flows.get(p.key) || []).slice(-3).reverse();
+        const st = p.est ? `<span class="pk-auto est">Estimated from your transfers. It becomes exact when a pocket statement arrives, or tap Update once.</span>` : p.at && (p.where === 'Capitec' || d.pf.flows.has(p.key)) ? `<span class="pk-auto">Tracks itself from your transfers${p.at ? ` since ${fmtDay(p.at)}` : ''}</span>` : '';
+        return st + (mv.length ? `<ul class="pk-moves">${mv.map((f) => `<li><span>${fmtDay(f.date)}</span><b class="num ${f.amount < 0 ? 'neg' : ''}">${f.amount < 0 ? '−' : '+'}${R(Math.abs(f.amount))}</b></li>`).join('')}</ul>` : ''); })()}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="soft small">${p.monthly ? `+${R(p.monthly)} a month` : 'No monthly top-up'}</span><button class="link" data-edit="${p.key}">Update</button></div></div>`;
   }).join('');
   const keys = ['emergency', 'allangray', 'goals'], end = d.proj[d.proj.length - 1];
@@ -2242,7 +2331,7 @@ function editSheet(key) {
     <form id="balForm" style="display:flex;gap:8px"><input class="field" id="balIn" inputmode="decimal" value="${p.balance}" aria-label="Balance" style="flex:1"><button class="btn">Save</button></form>${p.custom ? '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn ghost" id="goalEdit" style="flex:1">Edit goal</button><button class="btn danger" id="goalDel" style="flex:1">Delete</button></div>' : ''}`, () => {
     $('#balIn').focus();
     $('#balForm').onsubmit = (e) => { e.preventDefault(); const v = B.amountOf($('#balIn').value); if (!isFinite(v)) return toast('Type a number, like 25000');
-      p.balance = v; persist(['plan']); closeSheet(); render(); toast(`${p.name} updated`); };
+      anchorPocket(p, v); persist(['plan']); closeSheet(); render(); toast(`${p.name} updated. It keeps itself up to date from here.`); };
     if ($('#goalDel')) $('#goalDel').onclick = (e) => { if (!e.target.dataset.sure) { e.target.dataset.sure = 1; e.target.textContent = 'Tap again to delete this goal'; return; }
       S.plan.pockets = S.plan.pockets.filter((x) => x.key !== key); persist(['plan'], 1); closeSheet(); render(); toast('Goal deleted'); };
     if ($('#goalEdit')) $('#goalEdit').onclick = () => goalSheet(key);
@@ -2300,7 +2389,7 @@ function planSheet() {
     <details style="margin-top:16px"><summary class="soft small">Paste a saved plan</summary><textarea id="planPaste" rows="4" class="field" style="width:100%;margin-top:8px;padding:10px;font:16px ui-monospace,monospace"></textarea><button class="btn ghost" id="usePaste" style="margin-top:8px">Use this plan</button></details>`, () => {
     $('#planForm').onsubmit = (e) => { e.preventDefault(); const n = (id) => { const v = B.amountOf(($('#' + id)?.value || '').trim() || 'x'); return isFinite(v) ? v : 0; };
       P.take_home = n('p-th'); P.payday = Math.min(31, Math.max(1, n('p-pd') || 25)); P.budget.bills = n('p-bills'); P.budget.everyday = n('p-every');
-      for (const p of P.pockets) { p.balance = n('b-' + p.key); p.monthly = n('m-' + p.key); if ($('#t-' + p.key)) p.target = n('t-' + p.key) || null; }
+      for (const p of P.pockets) { const nb = n('b-' + p.key); if (nb !== p.balance) anchorPocket(p, nb); p.monthly = n('m-' + p.key); if ($('#t-' + p.key)) p.target = n('t-' + p.key) || null; }
       const g = P.pockets.find((p) => p.key === 'goals'); if (g && $('#g-name')) g.goal = $('#g-name').value.trim() || 'Next big purchase';
       P.budget.wants = P.pockets.find((p) => p.key === 'wants')?.monthly || 0;
       P.budget.savings = P.pockets.filter((p) => p.key !== 'wants').reduce((a, p) => a + (p.monthly || 0), 0);
