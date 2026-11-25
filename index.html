@@ -773,9 +773,8 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
      (a pocket statement, or one you typed) + every transfer in or out since that day. */
   const pnorm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   function transferTarget(t) {
-    const s = `${t.description || ''} ${t.merchant || ''}`;
-    if (/payshap|immediate|payment|cash ?send|airtime|prepaid/i.test(s)) return null;
-    const m = s.match(/transfer\s+(?:received\s+)?(?:to|from)\s+(.+?)\s*(?::|$|\s{2})/i);
+    if (/payshap|immediate|payment|cash ?send|airtime|prepaid/i.test(`${t.description || ''} ${t.merchant || ''}`)) return null;
+    let m = null; for (const s of [t.description, t.merchant]) if (!m && s) m = String(s).match(/transfer\s+(?:received\s+)?(?:to|from)\s+(.+?)\s*(?::|$|\s{2})/i);
     if (!m) return null;
     const name = m[1].replace(/\s+transfer$/i, '').trim();
     return name && !/^(main|savings?)( account)?$/i.test(name) ? name : null;
@@ -785,13 +784,32 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     // Exact names only: an old pocket like "20 Percent Wants" is a different pocket from today's "Wants".
     return pockets.find((p) => [p.name, ...(p.aliases || [])].some((a) => pnorm(a) === n)) || null;
   }
+
+  // A live Capitec alert about moving money between your own accounts: which side is the main account and which is a pocket.
+  // Handles "…from MAIN ACCOUNT to EMERGENCY…", "…to GOALS from WANTS…" and "Transfer of R500 to Emergency".
+  function pocketMove(text, pockets) {
+    const t = String(text || '').replace(/\s+/g, ' ');
+    if (!/transfer|moved?\b|saved?\b|savings|pocket/i.test(t) || /payshap|immediate payment|cash ?send/i.test(t)) return null;
+    const END = '(?=\\s*(?:;|\\.\\s|,|\\bref\\b|\\bon\\b|\\bavail|\\bbal|$))';
+    const side = (n) => { n = String(n || '').replace(/\b(savings?|pocket|plan)\b/gi, ' ').trim(); const p = pocketFor(n, pockets); return p ? p.key : /main|account|transact|cheque/i.test(n) ? 'main' : null; };
+    let from = null, to = null, m = t.match(new RegExp('\\bfrom\\s+(.+?)\\s+(?:to|into)\\s+(.+?)' + END, 'i'));
+    if (m) { from = side(m[1]); to = side(m[2]); }
+    else if ((m = t.match(new RegExp('\\b(?:to|into)\\s+(.+?)\\s+from\\s+(.+?)' + END, 'i')))) { to = side(m[1]); from = side(m[2]); }
+    else if ((m = t.match(new RegExp('\\b(?:to|into)\\s+(.+?)' + END, 'i')))) { to = side(m[1]); from = to && to !== 'main' ? 'main' : null; }
+    else if ((m = t.match(new RegExp('\\bfrom\\s+(.+?)' + END, 'i')))) { from = side(m[1]); to = from && from !== 'main' ? 'main' : null; }
+    if (!from || !to || from === to || (from === 'main' && to === 'main')) return null;
+    return {from, to};
+  }
   // Which transactions are pocket moves, the money each pocket gained, and pocket names we saw but don't know yet.
   function pocketFlows(tx, pockets, today) {
     const ids = new Map(), flows = new Map(), unknown = new Map(), recent = iso(new Date(D(iso(new Date(today))) - 60 * 864e5));
     for (const t of tx) {
+      if (t.between) { const [a, b] = t.between, v = Math.abs(t.amount); ids.set(t.id, a);
+        for (const [k, amt] of [[a, -v], [b, v]]) { if (!flows.has(k)) flows.set(k, []); flows.get(k).push({date: t.date, amount: amt, id: t.id, other: k === a ? b : a, time: t.received || ''}); }
+        continue; }
       const name = transferTarget(t); if (!name) continue;
       const p = pocketFor(name, pockets);
-      if (p) { ids.set(t.id, p.key); if (!flows.has(p.key)) flows.set(p.key, []); flows.get(p.key).push({date: t.date, amount: -t.amount, id: t.id}); continue; }
+      if (p) { ids.set(t.id, p.key); if (!flows.has(p.key)) flows.set(p.key, []); flows.get(p.key).push({date: t.date, amount: -t.amount, id: t.id, time: t.received || ''}); continue; }
       if (t.category === 'Pocket transfer' && t.date >= recent && !/percent/i.test(name)) {
         const k = pnorm(name), u = unknown.get(k) || {name: name.replace(/\b\w/g, (c) => c.toUpperCase()), n: 0, first: t.date, last: t.date, net: 0};
         u.n++; u.net += -t.amount; if (t.date < u.first) u.first = t.date; if (t.date > u.last) u.last = t.date; unknown.set(k, u);
@@ -801,7 +819,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
   }
   // Live balance of one pocket. `base`/`at` is the last sure balance; with none we add up every transfer we have.
   function pocketBalance(p, flows) {
-    const since = p.at || '0000-00-00', moved = (flows.get(p.key) || []).filter((f) => f.date > since).reduce((a, f) => a + f.amount, 0);
+    const since = p.at || '0000-00-00', moved = (flows.get(p.key) || []).filter((f) => f.date > since || (f.date === since && p.atTime && f.time && f.time > p.atTime)).reduce((a, f) => a + f.amount, 0);
     const base = p.base != null ? +p.base : p.at ? +p.balance || 0 : 0;
     return Math.round((base + moved) * 100) / 100;
   }
@@ -1182,7 +1200,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
       let category = categorise(desc, '', amount, overrides);
       if (category === 'Other' && !overrides[merchant]) category = known.get(merchant) || known.get(merchant.split(' ').slice(0, 2).join(' ')) || known.get('w:' + merchant.split(' ')[0]) || category;
       return {id: 'live:' + l.id, liveId: l.id, date: d, description: desc, merchant, bankCategory: '', category, amount, balance: null,
-        live: true, source: l.source || 'live', received: l.received || '', avail: n && n.avail != null ? n.avail : null};
+        live: true, raw: l.raw || '', source: l.source || 'live', received: l.received || '', avail: n && n.avail != null ? n.avail : null};
     });
   }
   // A live entry is covered by the statement when the same amount appears 0-4 days later.
@@ -1438,7 +1456,7 @@ kbd{font:600 11px var(--mono,ui-monospace);padding:2px 6px;border-radius:6px;bor
     return rows.filter((r) => (r.group === 'wants' || r.group === 'everyday') && r.category !== 'Cash withdrawal' && !(+have[r.category] > 0) && r.avg >= 100)
       .slice(0, max).map((r) => ({cat: r.category, limit: Math.max(50, Math.round(r.avg / 50) * 50), avg: r.avg}));
   }
-  const api = {coach, pocketFlows, pocketBalance, pocketStatement, transferTarget, categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
+  const api = {pocketMove, coach, pocketFlows, pocketBalance, pocketStatement, transferTarget, categoryTrend, suggestLimits, limitStatus, manualTx, walletBalance, owedSummary, setCashWallet, afford, billCalendar, setNames, health, spendPace, trueExpenses, applyRules, billsCycle, logWorth, monthReview, whatIf, refunds, priceRises, samePointBefore, holidays, workday, liveAlerts, topShops, pdfToText, parseText, amountOf, readNotification, merchantOf, labelOf, categorise, groupOf, GROUPS, CATEGORIES, DEFAULT_PLAN, SAMPLE_PLAN, clonePlan,
     nextPayday, project, checklist, monthsOf, fullMonths, categoryAverages, recurring, funSpend, budgetStatus, nudges,
     toTransactions, merge, monthName, MONTHS, iso, D,
     cycle, liveToTx, reconcile, allTx, spentBetween, upcoming, safeToSpend, forecast, newCharges, goalDates, weekSummary, paydayOn};
@@ -1535,7 +1553,7 @@ function derive() {
   const sp = S.plan.splits || {};
   const oo = S.plan.oneoff || {}, tg = S.plan.tags || {}, mark = (x) => (oo[x.id] || tg[x.id] ? {...x, ...(oo[x.id] ? {oneoff: true} : {}), ...(tg[x.id] ? {tag: tg[x.id]} : {})} : x), rules = S.plan.rules || [];
   const tx = B.refunds(B.applyRules(S.tx.map((x) => (S.overrides[x.merchant] ? {...x, category: S.overrides[x.merchant]} : x)), rules, S.overrides)).map(mark).map((x) => (sp[x.id] != null && x.amount < 0 ? {...x, full: x.amount, amount: -sp[x.id], split: true} : x));
-  let liveTx = B.applyRules(B.liveToTx(S.live, S.overrides, tx), rules, S.overrides).map(mark);
+  let liveTx = B.applyRules(B.liveToTx(S.live, S.overrides, tx), rules, S.overrides).map(mark).map(livePocket);
   // Moves to and from your savings pockets are your own money changing place: never spending, never income.
   const pid = B.pocketFlows([...tx, ...liveTx], S.plan.pockets, t).ids, pmv = (x) => (pid.has(x.id) && x.category !== 'Pocket transfer' ? {...x, category: 'Pocket transfer', pocket: pid.get(x.id)} : pid.has(x.id) ? {...x, pocket: pid.get(x.id)} : x);
   for (let i = 0; i < tx.length; i++) tx[i] = pmv(tx[i]); liveTx = liveTx.map(pmv);
@@ -1575,12 +1593,22 @@ function renderCoach(d) {
     ${c.leaks.length ? `<h3 class="sheet-sec" style="margin-top:18px">Money leaking away</h3><ul class="co-leaks">${c.leaks.slice(0, 4).map((l) => `<li><div><b>${esc(l.title)}</b><span>${esc(l.tip)}</span></div><em class="num">${R(l.yearly)}<small>a year</small></em></li>`).join('')}</ul>
     <p class="small co-save">Fixing these could keep about <b class="num">${R(c.saveable)}</b> a year in your pocket.</p>` : '<p class="small soft" style="margin-top:14px">No money leaks found. Nicely done.</p>'}`;
 }
+// Capitec also alerts you when money moves between your own accounts. Turn those alerts into pocket moves:
+// main → pocket, pocket → main, or pocket → pocket (which never touches your main account or its balance).
+function livePocket(t) {
+  const mv = t.raw ? B.pocketMove(t.raw, S.plan.pockets) : null; if (!mv) return t;
+  const nm = (k) => (S.plan.pockets.find((p) => p.key === k) || {}).name || k, v = Math.abs(t.amount);
+  if (mv.from === 'main') return {...t, description: `Transfer to ${nm(mv.to)}`, merchant: `TRANSFER TO ${nm(mv.to).toUpperCase()}`, category: 'Pocket transfer', amount: -v};
+  if (mv.to === 'main') return {...t, description: `Transfer Received from ${nm(mv.from)}`, merchant: `TRANSFER FROM ${nm(mv.from).toUpperCase()}`, category: 'Pocket transfer', amount: v, avail: null};
+  return {...t, description: `${nm(mv.from)} → ${nm(mv.to)}`, merchant: `POCKET MOVE`, category: 'Pocket transfer', between: [mv.from, mv.to], amount: -v, avail: null};
+}
 // Pocket balances keep themselves up to date: last sure balance + every transfer since (see engine pocketFlows).
 let pocketSaveTimer;
 function syncPockets(all, t) {
   const pf = B.pocketFlows(all, S.plan.pockets, t); let changed = false;
   for (const p of S.plan.pockets) {
-    if (p.at === undefined) { p.at = todayISO(); p.base = +p.balance || 0; changed = true; }  // first run: the balances you have are today's
+    if (p.at === undefined) { p.at = todayISO(); p.atTime = new Date().toISOString(); p.base = +p.balance || 0; changed = true; }
+    else if (p.at === todayISO() && !p.atTime && p.base != null) { p.atTime = p.at === '2026-11-25' ? '2026-11-25T10:25:00Z' : new Date(Date.now() - 6 * 3600e3).toISOString(); changed = true; }  // anchored earlier today, before move times were kept  // first run: the balances you have are today's
     if (!pf.flows.has(p.key) && !p.at) continue;
     const v = B.pocketBalance(p, pf.flows), nv = p.at ? v : Math.max(0, v);
     if (nv !== p.balance) { p.balance = nv; changed = true; }
@@ -1596,7 +1624,7 @@ function syncPockets(all, t) {
   if (changed && !S.sample) { clearTimeout(pocketSaveTimer); pocketSaveTimer = setTimeout(() => persist(['plan']), 800); }
   return pf;
 }
-function anchorPocket(p, v, on) { p.base = v; p.at = on || todayISO(); p.est = false; p.balance = v; }
+function anchorPocket(p, v, on) { p.base = v; p.at = on || todayISO(); p.atTime = on ? '' : new Date().toISOString(); p.est = false; p.balance = v; }
 // A savings pocket statement from Capitec locks in that pocket's exact balance.
 function usePocketStatement(e) {
   if (!e || !e.pocketText) return null;
@@ -2213,7 +2241,7 @@ function renderPockets(d) {
         return `<svg class="ring" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="22" fill="none" stroke="color-mix(in oklab,var(--ink) 9%,transparent)" stroke-width="6"/><circle class="ring-v" cx="28" cy="28" r="22" fill="none" stroke="${COL[p.key] || 'var(--acc)'}" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${c}" style="--to:${c * (1 - v / 100)}" transform="rotate(-90 28 28)"/><text x="28" y="32" text-anchor="middle">${Math.round(v)}%</text></svg>`; })()}</div>
       <p class="job">${esc(p.job)}</p>${extra}${(() => { const mv = (d.pf.flows.get(p.key) || []).slice(-3).reverse();
         const st = p.est ? `<span class="pk-auto est">Estimated from your transfers. It becomes exact when a pocket statement arrives, or tap Update once.</span>` : p.at && (p.where === 'Capitec' || d.pf.flows.has(p.key)) ? `<span class="pk-auto">Tracks itself from your transfers${p.at ? ` since ${fmtDay(p.at)}` : ''}</span>` : '';
-        return st + (mv.length ? `<ul class="pk-moves">${mv.map((f) => `<li><span>${fmtDay(f.date)}</span><b class="num ${f.amount < 0 ? 'neg' : ''}">${f.amount < 0 ? '−' : '+'}${R(Math.abs(f.amount))}</b></li>`).join('')}</ul>` : ''); })()}
+        return st + (mv.length ? `<ul class="pk-moves">${mv.map((f) => `<li><span>${fmtDay(f.date)}${f.time && /T\d\d:\d\d/.test(f.time) ? ' ' + new Date(f.time).toTimeString().slice(0, 5) : ''}${f.other ? ` · ${f.amount < 0 ? 'to' : 'from'} ${esc(f.other === 'main' ? 'Main' : (S.plan.pockets.find((x) => x.key === f.other) || {}).name || '')}` : f.amount < 0 ? ' · to Main' : ' · from Main'}</span><b class="num ${f.amount < 0 ? 'neg' : ''}">${f.amount < 0 ? '−' : '+'}${R(Math.abs(f.amount))}</b></li>`).join('')}</ul>` : ''); })()}
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span class="soft small">${p.monthly ? `+${R(p.monthly)} a month` : 'No monthly top-up'}</span><button class="link" data-edit="${p.key}">Update</button></div></div>`;
   }).join('');
   const keys = ['emergency', 'allangray', 'goals'], end = d.proj[d.proj.length - 1];
